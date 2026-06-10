@@ -2,9 +2,11 @@
 
 > 蓝色鲸鱼科技 Take-Home。打一通电话或打开浏览器，AI 自然对话采集车牌 / 公司 / 事由 / 手机号，25 秒内把结构化访客卡片推到门卫的企业微信。
 
-🎬 [演示视频](https://cdn.hailuoai.com/mcp/u483437766881136645/general/1781073761_fb820091.mov) · [测试指南](docs/TESTING.md)
+🎬 **演示视频** — 点击下方缩略图在浏览器播放（36 MB · QuickTime）
 
-> 视频原始文件 36 MB，存在 `docs/demo.mov`（GitHub web 不内嵌 .mov，故用 CDN URL 方便直接点开播放）
+[![演示视频](https://cdn.hailuoai.com/mcp/anon/general/1781073961_d7271b19.png)](https://cdn.hailuoai.com/mcp/u483437766881136645/general/1781073761_fb820091.mov)
+
+[📖 测试指南](docs/TESTING.md) · 视频原始文件存在 `docs/demo.mov`
 
 ## 架构
 
