@@ -1,0 +1,87 @@
+[project]
+name = "voice-agent-park"
+version = "0.1.0"
+description = "Voice Agent for industrial park visitor registration - takes incoming calls, runs a natural conversation, and pushes structured visitor info to the security guard via WeChat Work webhook."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Whale Tech Take-Home", email = "hr@whaletech.ai" },
+]
+keywords = ["voice-agent", "twilio", "fastapi", "openai", "whaletech"]
+
+dependencies = [
+    # Web framework
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.27.0",
+    "websockets>=12.0",
+    "python-multipart>=0.0.9",
+    # Twilio telephony
+    "twilio>=9.0.0",
+    # STT / TTS
+    "deepgram-sdk>=3.2.0",          # primary STT
+    "openai>=1.30.0",                # backup STT (Whisper) + LLM + TTS
+    "edge-tts>=6.1.0",               # primary TTS (free, multilingual)
+    # LLM
+    "openai>=1.30.0",
+    # Audio handling
+    "numpy>=1.26.0",
+    "pydub>=0.25.1",
+    # Config
+    "pydantic>=2.6.0",
+    "pydantic-settings>=2.2.0",
+    "python-dotenv>=1.0.0",
+    # Database
+    "sqlmodel>=0.0.16",
+    "aiosqlite>=0.20.0",
+    # Logging
+    "loguru>=0.7.2",
+    "rich>=13.7.0",
+    "greenlet>=3.5.1",
+    "pyee>=13.0.1",
+    "lameenc>=1.8.2",
+    "imageio-ffmpeg>=0.6.0",
+    "dashscope==1.20.0",
+    "pyngrok>=8.1.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "ruff>=0.4.0",
+    "mypy>=1.10.0",
+]
+
+[project.urls]
+"Source" = "https://github.com/whaletech/voice-agent-park"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "C4"]
+ignore = ["E501"]  # handled by formatter
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+    "pytest-asyncio>=1.4.0",
+]

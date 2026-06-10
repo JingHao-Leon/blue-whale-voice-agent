@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+
+# Local data
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Twilio recordings (if you ever enable them)
+*.wav
+*.mp3
+recordings/
+.codegraph/
