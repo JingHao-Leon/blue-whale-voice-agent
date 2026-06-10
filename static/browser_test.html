@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice Agent · 浏览器实测</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #1a1d24; --line: #2a2f3a;
+    --text: #e6e8eb; --muted: #8b95a7;
+    --accent: #4f8cff; --accent-dim: #2c4d8c;
+    --user: #3ecf8e; --agent: #ffb84d;
+    --ok: #3ecf8e; --err: #ff6b6b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang SC",
+                 "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--text);
+    min-height: 100vh; display: flex; flex-direction: column;
+    padding: 24px; max-width: 880px; margin: 0 auto; width: 100%;
+  }
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  h1 { font-size: 20px; font-weight: 600; }
+  .pill {
+    padding: 4px 10px; border-radius: 999px; font-size: 12px;
+    background: var(--accent-dim); color: var(--text);
+  }
+  .pill.ok { background: rgba(62, 207, 142, 0.2); color: var(--ok); }
+  .pill.err { background: rgba(255, 107, 107, 0.2); color: var(--err); }
+  .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px; margin-bottom: 12px;
+  }
+  .row { display: flex; gap: 12px; align-items: center; }
+  .row.tight { gap: 6px; }
+  button {
+    border: 1px solid var(--line); background: var(--panel); color: var(--text);
+    padding: 10px 16px; border-radius: 8px; font-size: 14px; cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover:not(:disabled) { background: #6a9eff; }
+  button.danger { background: #c14545; border-color: #c14545; color: #fff; }
+  button.danger:hover:not(:disabled) { background: #d65555; }
+  .status { font-size: 13px; color: var(--muted); margin-left: auto; }
+  .log {
+    height: 380px; overflow-y: auto; background: #0a0c10; border-radius: 8px;
+    padding: 12px; font-size: 14px; line-height: 1.55; font-family: ui-monospace,
+                 SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .log .bubble {
+    display: inline-block; padding: 6px 10px; border-radius: 8px; margin: 2px 0;
+    max-width: 90%; word-break: break-word;
+  }
+  .bubble.user { background: rgba(62, 207, 142, 0.15); border: 1px solid var(--user); }
+  .bubble.agent { background: rgba(255, 184, 77, 0.12); border: 1px solid var(--agent); }
+  .bubble.sys  { background: rgba(139, 149, 167, 0.12); border: 1px solid var(--muted); color: var(--muted); }
+  .label { font-size: 11px; color: var(--muted); margin: 8px 0 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .meter {
+    width: 100%; height: 4px; background: #0a0c10; border-radius: 2px; overflow: hidden;
+    margin: 4px 0;
+  }
+  .meter > div { height: 100%; width: 0; background: var(--user); transition: width 0.05s linear; }
+  .meta { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  code { font-size: 12px; color: var(--accent); background: rgba(79, 140, 255, 0.1); padding: 1px 5px; border-radius: 3px; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>📞 浏览器实测 · 蓝色鲸鱼访客登记</h1>
+    <span id="conn" class="pill">未连接</span>
+  </header>
+
+  <div class="panel">
+    <div class="row">
+      <button id="btnStart" class="primary">开始对话</button>
+      <button id="btnStop" disabled>结束通话</button>
+      <button id="btnTest" title="不连服务器，直接在浏览器生成 440 Hz 正弦波验证扬声器">🔊 测试音</button>
+      <span id="status" class="status">点击「开始对话」授权麦克风</span>
+    </div>
+    <div class="meter" style="margin-top:12px"><div id="meter"></div></div>
+    <div class="meta">
+      链路：浏览器 mic → <code>/ws/browser</code> → Bailian ASR <code>fun-asr-realtime</code> → qwen3.6-flash → TTS <code>qwen3-tts-flash/Cherry</code> → 浏览器扬声器
+      · 输出采样率：<code id="ctxSr">—</code> Hz（设备默认）
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="label">对话记录</div>
+    <div id="log" class="log"></div>
+  </div>
+
+<script>
+(() => {
+  "use strict";
+
+  // Build WS URL from window.location so it auto-tracks whatever tunnel /
+  // hostname the user is loading the page through. The {{WS_URL}} template
+  // var is no longer needed and the env PUBLIC_BASE_URL can stay stale.
+  const WS_URL = (location.protocol === "https:" ? "wss://" : "ws://")
+              + location.host + "/ws/browser";
+  const SAMPLE_RATE = 16000;
+  const log = document.getElementById("log");
+  const btnStart = document.getElementById("btnStart");
+  const btnStop = document.getElementById("btnStop");
+  const statusEl = document.getElementById("status");
+  const connPill = document.getElementById("conn");
+  const meter = document.getElementById("meter");
+
+  let ws = null;
+  let mediaStream = null;
+  let audioCtxIn = null;     // capture
+  let audioCtxOut = null;    // playback
+  let processor = null;
+  let playing = false;
+  let micMuted = false;      // mute mic while agent is speaking
+  // Reply-wait indicator: when the user finishes speaking and we have
+  // to wait for the server's 3 s VAD + LLM + TTS, the user is staring
+  // at silence wondering if anything's happening. After 1 s of local
+  // silence, start a 3 s timer; if no agent_audio_start has arrived by
+  // then, flip the status to "🤔 思考中…" so the user knows the round-
+  // trip is in progress. The timer is cancelled by any new user audio
+  // (they resumed talking) or by agent_audio_start (reply coming in).
+  let userSilentFrames = 0;
+  let replyWaitTimer = null;
+  let micOpenPollTimer = null;        // polls activeSources to detect end of agent audio
+  const LOCAL_SILENCE_FRAMES = 12;   // ~1.0 s of mic-quiet = "user paused"
+  const REPLY_WAIT_MS = 3000;         // 3 s after that, show "思考中…"
+
+  function setStatus(s) { statusEl.textContent = s; }
+  function setConn(label, ok) {
+    connPill.textContent = label;
+    connPill.className = "pill" + (ok === true ? " ok" : ok === false ? " err" : "");
+  }
+  function append(kind, text) {
+    const el = document.createElement("div");
+    el.innerHTML = `<span class="bubble ${kind}">${escapeHtml(text)}</span>`;
+    log.appendChild(el);
+    log.scrollTop = log.scrollHeight;
+  }
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, c => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[c]));
+  }
+
+  // ---------- playback: queue PCM 16kHz mono chunks into a single AudioContext ----------
+  // Important: do NOT force sampleRate on AudioContext. Most browsers/headsets
+  // (e.g. Mac default 48 kHz) will reject a 16 kHz context and silently fall
+  // back to the device's native rate — which then plays 16 kHz PCM 3× too
+  // fast. We let the context use the device rate, and the Web Audio API
+  // resamples each 16 kHz buffer to that rate correctly.
+  function ensureOutCtx() {
+    if (!audioCtxOut) {
+      audioCtxOut = new (window.AudioContext || window.webkitAudioContext)();
+      console.log("[voice-agent] AudioContext sample rate:", audioCtxOut.sampleRate);
+      const srEl = document.getElementById("ctxSr");
+      if (srEl) srEl.textContent = audioCtxOut.sampleRate;
+    }
+    if (audioCtxOut.state === "suspended") audioCtxOut.resume();
+  }
+
+  // Track the next-scheduled playback time so we queue chunks SEQUENTIALLY
+  // rather than firing every chunk at t=0 (which would layer all chunks on
+  // top of each other and sound like noise / a bad echo).
+  let nextStartTime = 0;
+  // Track every BufferSource currently scheduled so barge-in can stop
+  // them all in one go (Web Audio has no built-in "kill the queue" API).
+  const activeSources = new Set();
+  let bargeInFrames = 0;       // unused (barge-in removed in v1.15.5)
+  // Barge-in DISABLED in v1.15.5. User feedback: "他说完了，再去听我说".
+  // We previously let the user interrupt the agent mid-TTS (peak > 0.15
+  // for 8 frames). That's gone. The agent ALWAYS finishes its reply, and
+  // the mic only reopens after a 2.5 s tail-protect window (see
+  // agent_audio_end below). If we ever want to re-enable it, the
+  // constants are kept here for reference but not used:
+  const BARGE_IN_FRAMES_DISABLED = 8;
+  const BARGE_IN_PEAK_THRESHOLD_DISABLED = 0.15;
+
+  function playPcm16k(pcmBytes) {
+    ensureOutCtx();
+    const i16 = new Int16Array(pcmBytes.buffer, pcmBytes.byteOffset, pcmBytes.byteLength / 2);
+    const f32 = new Float32Array(i16.length);
+    for (let i = 0; i < i16.length; i++) f32[i] = i16[i] / 32768;
+    const buf = audioCtxOut.createBuffer(1, f32.length, SAMPLE_RATE);
+    buf.copyToChannel(f32, 0);
+    const src = audioCtxOut.createBufferSource();
+    src.buffer = buf;
+    src.connect(audioCtxOut.destination);
+    const now = audioCtxOut.currentTime;
+    if (nextStartTime < now) nextStartTime = now + 0.02;  // tiny lead-in
+    src.start(nextStartTime);
+    nextStartTime += buf.duration;
+    activeSources.add(src);
+    src.onended = () => activeSources.delete(src);
+  }
+
+  function stopAllTTS() {
+    // Cancel every queued + currently-playing chunk. Used on barge-in.
+    for (const s of activeSources) {
+      try { s.stop(); } catch {}
+    }
+    activeSources.clear();
+    nextStartTime = 0;
+    playing = false;
+  }
+
+  function resetPlaybackCursor() { nextStartTime = 0; }
+
+  // ---------- capture mic at 16 kHz mono, send as Int16 LE PCM frames ----------
+  async function startMic() {
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        channelCount: 1, sampleRate: SAMPLE_RATE,
+        // v1.15.7: autoGainControl flipped ON. It was OFF in the original
+        // design because it was thought to confuse VAD/ASR, but in
+        // practice quiet voices were getting filtered out by the mic
+        // gate (peak < 0.025) AND by Bailian's 23 s timeout (audio too
+        // quiet for fun-asr-realtime to detect end-of-utterance).
+        // AGC amplifies quiet speech to a normal level; the VAD
+        // threshold stays the same so the agent's TTS bleed-through is
+        // still filtered. echoCancellation / noiseSuppression stay OFF
+        // (they DO smear consonants like "1" vs "七" — see git blame
+        // for the v1.0 reasoning).
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: true,
+      }
+    });
+    audioCtxIn = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtxIn.sampleRate !== SAMPLE_RATE) {
+      // Browser didn't honor our requested rate. We'll resample in code.
+    }
+    const src = audioCtxIn.createMediaStreamSource(mediaStream);
+    // === v1.15.8: bandpass filter DISABLED. The 200-4000 Hz filter was
+    // stripping high-frequency consonants (sibilants like "s", "x", and
+    // the "1"/"7" plate digits). For Chinese phone-number recognition
+    // those consonants matter a lot. Browser's own noiseSuppression (now
+    // ON) handles ambient noise without nuking consonants.
+    // === v1.15.8 diagnostic counters: every 1 s, log the current mic
+    // peak and the number of audio chunks sent. If the user is talking
+    // but bailian keeps timing out at 23 s, this log will show whether
+    // the browser is actually sending audio to the server.
+    const bufSize = 4096;
+    processor = audioCtxIn.createScriptProcessor(bufSize, 1, 1);
+    // v1.15.9: insert a DynamicsCompressor for adaptive gain. The user's
+    // recordings were at rms ≈ 358-606 (vs normal 5000-15000), so AGC
+    // isn't enough on the user's Mac + Chrome setup. A compressor brings
+    // up quiet parts without blowing up loud parts — the right tool for
+    // "speak at any volume, get recorded at a normal level". This is
+    // NOT a constant 2x gain; it's dynamic range compression that only
+    // affects frames below -50 dB.
+    const compressor = audioCtxIn.createDynamicsCompressor();
+    compressor.threshold.value = -50;  // dB — anything below this gets pulled up
+    compressor.knee.value = 40;         // dB — soft transition
+    compressor.ratio.value = 12;        // 12:1 — strong but not extreme
+    compressor.attack.value = 0.003;    // 3 ms — catches plosives
+    compressor.release.value = 0.25;    // 250 ms — natural decay
+    src.connect(compressor);
+    compressor.connect(processor);
+    processor.connect(audioCtxIn.destination);
+    // Diagnostic log state
+    let _dbgChunksSent = 0;
+    let _dbgLastPeak = 0;
+    let _dbgLastLog = Date.now();
+    setInterval(() => {
+      if (Date.now() - _dbgLastLog < 1000) return;
+      _dbgLastLog = Date.now();
+      console.log(`[mic-diag] peak=${_dbgLastPeak.toFixed(3)} chunks_sent=${_dbgChunksSent}`);
+    }, 500);
+    processor.onaudioprocess = (e) => {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      const f32 = e.inputBuffer.getChannelData(0);
+      // VU meter (always show real level so user sees they're loud)
+      let peak = 0;
+      for (let i = 0; i < f32.length; i++) {
+        const v = Math.abs(f32[i]);
+        if (v > peak) peak = v;
+      }
+      meter.style.width = Math.min(100, peak * 200).toFixed(0) + "%";
+
+      // === BARGE-IN REMOVED in v1.15.5. The agent always finishes its
+      // reply; the mic reopens only after a 2.5 s tail-protect window.
+      // (Barge-in constants are still defined above for reference; this
+      // block is intentionally empty.)
+
+      if (userSilentFrames === LOCAL_SILENCE_FRAMES && !replyWaitTimer) {
+        // User just transitioned to silent. Start the 3 s "are we
+        // still alive?" timer. Don't fire it if the agent is currently
+        // talking or the mic is muted (we just played a reply).
+        if (!playing && !micMuted) {
+          replyWaitTimer = setTimeout(() => {
+            replyWaitTimer = null;
+            if (!playing) {
+              setStatus("🤔 思考中…");
+            }
+          }, REPLY_WAIT_MS);
+        }
+      }
+
+      // Keep the old 1.5 s tail-protect against TTS bleeding into the STT
+      // (the speaker→mic tail), but drop the full mute. `micMuted` is set
+      // false 1.5 s after agent_audio_end; the gap is short enough that
+      // normal speech still flows through.
+      if (micMuted) return;
+
+      // === Mic-gate: skip frames that are too quiet to be real speech.
+      // Even after micMuted becomes false, the room's background hum
+      // (fans, AC, laptop noise) and the tail of the agent's TTS still
+      // bleeding from the speakers are loud enough for the STT to
+      // hallucinate "嗯" / "啊" / "那个" as a final transcript. By
+      // dropping any frame whose peak amplitude is below
+      // MIC_GATE_THRESHOLD, we keep the STT buffer mostly silent
+      // whenever the user isn't actively speaking, so it only emits a
+      // real final when the user actually says something.
+      // 0.025 is a safe floor after the 200-4000 Hz bandpass above:
+      //   - normal speech: 0.1-0.5 (well above)
+      //   - soft speech: 0.03-0.1 (mostly above; very quiet whispers
+      //     get filtered but that's an acceptable trade-off)
+      //   - ambient noise (fans/AC after bandpass): 0.001-0.003 (way below)
+      //   - TTS tail bleeding: 0.01-0.03 (mostly below, the louder tail
+      //     is already covered by the micMuted grace)
+      // v1.15.9: restored 0.025 (was 0.015 in v1.15.7–v1.15.8). User
+      // feedback: "我说话声音其实不小" — the 0.015 floor was letting
+      // pure noise frames through (the rms=358 diagnostic showed audio
+      // passing with energy too low for Bailian to detect speech).
+      // 0.025 cleanly separates speech from room noise on the user's
+      // setup; lower values risk feeding noise into the STT pipeline.
+      const MIC_GATE_THRESHOLD = 0.025;
+      if (peak < MIC_GATE_THRESHOLD) return;
+
+      // Resample if needed (linear interp)
+      const inRate = audioCtxIn.sampleRate;
+      let samples = f32;
+      if (inRate !== SAMPLE_RATE) {
+        const ratio = inRate / SAMPLE_RATE;
+        const outLen = Math.floor(f32.length / ratio);
+        const out = new Float32Array(outLen);
+        for (let i = 0; i < outLen; i++) {
+          const srcIdx = i * ratio;
+          const i0 = Math.floor(srcIdx);
+          const i1 = Math.min(i0 + 1, f32.length - 1);
+          const t = srcIdx - i0;
+          out[i] = f32[i0] * (1 - t) + f32[i1] * t;
+        }
+        samples = out;
+      }
+      // Float32 → Int16 LE
+      const i16 = new Int16Array(samples.length);
+      for (let i = 0; i < samples.length; i++) {
+        const s = Math.max(-1, Math.min(1, samples[i]));
+        i16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+      }
+      // v1.15.8 diagnostic: track peak + chunks sent
+      _dbgLastPeak = peak;
+      _dbgChunksSent++;
+      ws.send(i16.buffer);
+    };
+  }
+
+  function stopMic() {
+    if (processor) { processor.disconnect(); processor.onaudioprocess = null; processor = null; }
+    if (audioCtxIn) { audioCtxIn.close().catch(() => {}); audioCtxIn = null; }
+    if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+    meter.style.width = "0%";
+  }
+
+  // ---------- WebSocket ----------
+  function connect() {
+    setStatus("正在连接…");
+    setConn("连接中", null);
+    ws = new WebSocket(WS_URL);
+    ws.binaryType = "arraybuffer";
+    ws.onopen = () => {
+      setConn("已连接", true);
+      setStatus("正在说开场白…");
+      ws.send(JSON.stringify({ type: "config", sample_rate: SAMPLE_RATE }));
+      // Keep btnStart enabled so the user can re-connect by clicking it
+      // again. Only the "结束通话" button should be disabled until WS
+      // is open. This fixes the UX bug where the user saw only "结束"
+      // enabled and clicked it, thinking it was the start button.
+      btnStop.disabled = false;
+      btnStart.textContent = "重新连接";
+    };
+    ws.onmessage = (ev) => {
+      if (typeof ev.data === "string") {
+        let msg;
+        try { msg = JSON.parse(ev.data); } catch { return; }
+        if (msg.type === "ready") {
+          append("sys", "✓ server ready");
+        } else if (msg.type === "transcript") {
+          // show partials lightly, finals as a proper user bubble
+          if (msg.is_final) append("user", msg.text);
+        } else if (msg.type === "agent_text") {
+          append("agent", msg.text);
+                        } else if (msg.type === "agent_audio_start") {
+                          playing = true;
+                          micMuted = true;
+                          resetPlaybackCursor();
+                          // Reply arrived: cancel any pending "思考中" timer
+                          if (replyWaitTimer) {
+                            clearTimeout(replyWaitTimer);
+                            replyWaitTimer = null;
+                          }
+                          setStatus("🤖 AI 正在说…（麦克风已静音）");
+                        } else if (msg.type === "agent_audio_end") {
+                          playing = false;
+                          // === v1.15.6: dynamic unmute based on actual
+                          // playback completion. v1.15.5 used a fixed 2.5 s
+                          // timer; that failed when the agent's TTS reply
+                          // was > 2.5 s long — the tail was still bleeding
+                          // into the mic and got transcribed as user speech
+                          // (e.g. agent's "麻烦报一下车牌号…" appeared inside
+                          // the user bubble). Now we poll `activeSources`
+                          // (set maintained by playPcm16k / onended) every
+                          // 100 ms; once it's empty the audio is genuinely
+                          // done, then we add a 500 ms grace for any
+                          // speaker→mic tail and only then open the mic.
+                          if (micOpenPollTimer) { clearInterval(micOpenPollTimer); micOpenPollTimer = null; }
+                          // v1.15.7: 8 s safety-net timeout. The normal path
+                          // is `activeSources.size === 0` (audio buffers all
+                          // ended). But if a buffer's onended doesn't fire
+                          // (browser bug, audio context suspended, etc.) the
+                          // poll would loop forever and the mic would never
+                          // open — the user would speak into a dead mic. 8 s
+                          // is well past the longest realistic agent reply.
+                          const pollStart = Date.now();
+                          micOpenPollTimer = setInterval(() => {
+                            if (activeSources.size === 0 || Date.now() - pollStart > 8000) {
+                              clearInterval(micOpenPollTimer);
+                              micOpenPollTimer = null;
+                              setTimeout(() => {
+                                if (activeSources.size === 0) {  // double-check
+                                  micMuted = false;
+                                  setStatus("👂 轮到你了，请说话");
+                                }
+                              }, 500);
+                            }
+                          }, 100);
+        } else if (msg.type === "wechat_ok") {
+          append("sys", "✓ WeChat webhook " + (msg.ok ? "OK" : "FAILED"));
+        } else if (msg.type === "done") {
+          append("sys", "✓ 会话结束：" + (msg.summary || ""));
+          stopAll();
+        } else if (msg.type === "error") {
+          append("sys", "✗ " + msg.message);
+        }
+      } else {
+        // binary = PCM 16 kHz mono
+        if (playing) playPcm16k(new Uint8Array(ev.data));
+      }
+    };
+    ws.onerror = () => setStatus("WebSocket 错误");
+    ws.onclose = () => {
+      setConn("断开", false);
+      stopAll();
+    };
+  }
+
+  function stopAll() {
+    btnStart.disabled = false;
+    btnStart.textContent = "开始对话";  // reset label after "重新连接"
+    btnStop.disabled = true;
+    setStatus("已断开 — 点「开始对话」重新连");
+    stopMic();
+    if (ws) { try { ws.close(); } catch {} ws = null; }
+  }
+
+  btnStart.onclick = async () => {
+    log.innerHTML = "";
+    try { await startMic(); } catch (e) {
+      append("sys", "✗ 麦克风权限被拒：" + e.message);
+      return;
+    }
+    connect();
+  };
+  btnStop.onclick = () => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "stop" }));
+    }
+    stopAll();
+  };
+
+  // Local 440 Hz sine, 0.6 s — verifies the speaker chain without involving
+  // the server. If this sounds normal but agent audio is still weird, the
+  // bug is in the data path; if THIS also sounds weird, it's the device.
+  btnTest.onclick = () => {
+    ensureOutCtx();
+    const sr = audioCtxOut.sampleRate;
+    const dur = 0.6;
+    const buf = audioCtxOut.createBuffer(1, Math.floor(sr * dur), sr);
+    const ch = buf.getChannelData(0);
+    for (let i = 0; i < ch.length; i++) {
+      ch[i] = Math.sin(2 * Math.PI * 440 * i / sr) * 0.3;
+    }
+    const src = audioCtxOut.createBufferSource();
+    src.buffer = buf;
+    src.connect(audioCtxOut.destination);
+    src.start();
+    setStatus(`测试音已播（${sr} Hz, 440 Hz × 0.6 s）`);
+  };
+
+  // Heartbeat: periodically nudge STT to flush if user paused
+  setInterval(() => {
+    if (ws && ws.readyState === WebSocket.OPEN && playing === false) {
+      // nothing to do, server tracks silence via VAD
+    }
+  }, 1000);
+})();
+</script>
+</body>
+</html>

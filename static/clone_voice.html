@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>CosyVoice 声音复刻录音</title>
+<style>
+  body { font-family: -apple-system, "PingFang SC", sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; }
+  h1 { font-size: 20px; }
+  .row { margin: 20px 0; }
+  button { font-size: 16px; padding: 12px 24px; border-radius: 8px; border: 1px solid #ccc; background: #f5f5f5; cursor: pointer; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.recording { background: #d33; color: #fff; border-color: #d33; }
+  .meter { width: 100%; height: 24px; background: #eee; border-radius: 4px; overflow: hidden; margin-top: 8px; }
+  .meter > div { height: 100%; background: linear-gradient(to right, #4caf50, #ff9800, #f44336); width: 0%; transition: width 50ms; }
+  .status { font-size: 14px; color: #666; margin-top: 8px; }
+  .script { background: #f5f5f5; padding: 12px; border-radius: 4px; font-family: monospace; font-size: 13px; }
+  .ok { color: #080; }
+  .err { color: #c00; }
+  code { background: #f5f5f5; padding: 2px 6px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<h1>🎙️ CosyVoice v3.5+ 声音复刻录音</h1>
+<p>对着麦克风念下面任一段，**10-30 秒**效果最好（清晰、无背景音乐）。</p>
+
+<div class="row">
+  <strong>建议参考文本（任选一段，10-30 秒）：</strong>
+  <ol>
+    <li>"您好，欢迎致电蓝色鲸鱼科技园。请问您贵姓？来拜访哪家公司、什么事？车牌号方便告诉我一下吗？好的，我马上帮您通知门卫。"</li>
+    <li>"今天的天气真不错，阳光明媚，微风不燥，正是出门拜访客户的好日子。请问您怎么称呼？需要我帮您联系前台吗？"</li>
+    <li>"欢迎来到蓝色鲸鱼科技园，我们致力于为访客提供最便捷的登记服务。请您提供车牌号和被访人信息，我会帮您完成登记。"</li>
+  </ol>
+</div>
+
+<div class="row">
+  <button id="btn">🎤 开始录音 (最长30秒,到点自动停)</button>
+  <div class="meter"><div id="meter-fill"></div></div>
+  <div class="status" id="status">准备就绪</div>
+</div>
+
+<div class="row" id="result" style="display:none">
+  <h2>✅ 录音已保存</h2>
+  <p>文件路径：<code>/tmp/voice_clone_ref.wav</code></p>
+  <p>大小：<span id="size">?</span> bytes，时长：<span id="duration">?</span> 秒</p>
+  <h3>下一步：跑复刻脚本</h3>
+  <div class="script">
+    cd /Users/ahs/Documents/Minimax_voice_agent/voice_agent<br>
+    uv run python scripts/clone_voice.py /tmp/voice_clone_ref.wav
+  </div>
+  <p>跑完把打印出来的 <code>voice_id</code> 填到 <code>.env</code> 的 <code>BAILIAN_TTS_VOICE</code>，重启 server。</p>
+</div>
+
+<script>
+const btn = document.getElementById('btn');
+const fill = document.getElementById('meter-fill');
+const statusEl = document.getElementById('status');
+const resultEl = document.getElementById('result');
+let mediaRecorder = null;
+let audioStream = null;
+let audioCtx = null;
+let analyser = null;
+let recordedChunks = [];
+let isRecording = false;
+let startTime = 0;
+let durationMs = 30000;  // 30 秒自动停; v3.5+ 复刻推荐 10-30s
+
+async function startRecording() {
+  btn.textContent = '⏹ 停止录音';
+  btn.classList.add('recording');
+  statusEl.textContent = '🔴 录音中... 请说话';
+  statusEl.className = 'status';
+  recordedChunks = [];
+  isRecording = true;
+  startTime = Date.now();
+
+  try {
+    audioStream = await navigator.mediaDevices.getUserMedia({ audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true } });
+  } catch (e) {
+    statusEl.textContent = '❌ 麦克风权限被拒绝: ' + e.message;
+    statusEl.className = 'status err';
+    stopRecording();
+    return;
+  }
+
+  mediaRecorder = new MediaRecorder(audioStream, { mimeType: 'audio/webm' });
+  mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
+  mediaRecorder.start(100);
+
+  // VU meter
+  audioCtx = new AudioContext();
+  const source = audioCtx.createMediaStreamSource(audioStream);
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 256;
+  source.connect(analyser);
+  const data = new Uint8Array(analyser.frequencyBinCount);
+  function tick() {
+    if (!isRecording) return;
+    analyser.getByteFrequencyData(data);
+    const avg = data.reduce((a, b) => a + b, 0) / data.length;
+    fill.style.width = Math.min(100, avg * 2) + '%';
+    const elapsed = Date.now() - startTime;
+    if (elapsed >= durationMs) {
+      stopRecording();
+      return;
+    }
+    requestAnimationFrame(tick);
+  }
+  tick();
+}
+
+async function stopRecording() {
+  if (!isRecording) return;
+  isRecording = false;
+  btn.disabled = true;
+  statusEl.textContent = '⏳ 正在上传到服务器...';
+
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+    await new Promise(r => mediaRecorder.onstop = r);
+  }
+  if (audioStream) audioStream.getTracks().forEach(t => t.stop());
+  if (audioCtx) audioCtx.close();
+
+  const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+  const arrayBuf = await blob.arrayBuffer();
+
+  // Convert webm → wav 16kHz mono client-side
+  statusEl.textContent = '⏳ 转换音频格式...';
+  const wav = await webmToWav16k(arrayBuf);
+
+  // Upload
+  statusEl.textContent = '⏳ 上传到服务器...';
+  const fd = new FormData();
+  fd.append('audio', new Blob([wav], { type: 'audio/wav' }), 'ref.wav');
+  const r = await fetch('/api/clone/upload', { method: 'POST', body: fd });
+  if (!r.ok) {
+    statusEl.textContent = '❌ 上传失败: ' + (await r.text());
+    statusEl.className = 'status err';
+    btn.disabled = false;
+    return;
+  }
+  const body = await r.json();
+  statusEl.className = 'status ok';
+  statusEl.textContent = '✅ 已保存到 /tmp/voice_clone_ref.wav';
+  resultEl.style.display = 'block';
+  document.getElementById('size').textContent = body.size;
+  document.getElementById('duration').textContent = body.duration;
+  btn.disabled = false;
+  btn.textContent = '🎤 重新录音';
+  btn.classList.remove('recording');
+}
+
+async function webmToWav16k(arrayBuf) {
+  const ctx = new AudioContext({ sampleRate: 16000 });
+  const decoded = await ctx.decodeAudioData(arrayBuf);
+  const ch = decoded.numberOfChannels;
+  const sr = decoded.sampleRate;
+  const len = decoded.length;
+  const interleaved = new Float32Array(len * ch);
+  for (let c = 0; c < ch; c++) {
+    const data = decoded.getChannelData(c);
+    for (let i = 0; i < len; i++) interleaved[i * ch + c] = data[i];
+  }
+  ctx.close();
+  return encodeWav(interleaved, ch, sr);
+}
+
+function encodeWav(samples, numChannels, sampleRate) {
+  const bytesPerSample = 2;
+  const blockAlign = numChannels * bytesPerSample;
+  const byteRate = sampleRate * blockAlign;
+  const dataSize = samples.length * bytesPerSample;
+  const buffer = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(buffer);
+  // RIFF header
+  writeString(view, 0, 'RIFF');
+  view.setUint32(4, 36 + dataSize, true);
+  writeString(view, 8, 'WAVE');
+  writeString(view, 12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); // PCM
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, byteRate, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, 16, true);
+  writeString(view, 36, 'data');
+  view.setUint32(40, dataSize, true);
+  // PCM data
+  let offset = 44;
+  for (let i = 0; i < samples.length; i++) {
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    offset += 2;
+  }
+  return new Blob([buffer], { type: 'audio/wav' });
+}
+
+function writeString(view, offset, s) {
+  for (let i = 0; i < s.length; i++) view.setUint8(offset + i, s.charCodeAt(i));
+}
+
+btn.onclick = () => isRecording ? stopRecording() : startRecording();
+</script>
+</body>
+</html>
