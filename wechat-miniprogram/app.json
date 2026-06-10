@@ -1,0 +1,18 @@
+{
+  "pages": [
+    "pages/index/index"
+  ],
+  "window": {
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#0f1115",
+    "navigationBarTitleText": "园区访客登记",
+    "navigationBarTextStyle": "white"
+  },
+  "permission": {
+    "scope.record": {
+      "desc": "需要麦克风权限进行语音对话"
+    }
+  },
+  "requiredPrivateInfos": ["getLocation"],
+  "style": "v2"
+}

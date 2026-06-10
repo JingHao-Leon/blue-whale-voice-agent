@@ -1,0 +1,44 @@
+<!--pages/index/index.wxml-->
+<view class="container">
+  <view class="header">
+    <text class="title">📞 园区访客登记</text>
+    <text class="subtitle">蓝色鲸鱼科技园</text>
+  </view>
+
+  <view class="status-bar">
+    <text class="status-dot {{connected ? 'on' : 'off'}}">●</text>
+    <text class="status-text">{{status}}</text>
+  </view>
+
+  <view class="controls">
+    <button
+      class="mic-btn {{recording ? 'recording' : ''}}"
+      bindtap="onMicTap"
+      disabled="{{!connected}}"
+      hover-class="none"
+    >
+      <text class="mic-icon">{{recording ? '⏹' : '🎙'}}</text>
+      <text class="mic-text">{{recording ? '松开结束' : '按住说话'}}</text>
+    </button>
+  </view>
+
+  <view class="log-panel">
+    <view class="log-title">对话记录</view>
+    <scroll-view class="log" scroll-y="true" scroll-into-view="{{lastMsgId}}">
+      <block wx:for="{{messages}}" wx:key="id">
+        <view id="msg-{{item.id}}" class="bubble-row {{item.kind}}">
+          <view class="bubble {{item.kind}}">
+            <text>{{item.text}}</text>
+          </view>
+        </view>
+      </block>
+      <view wx:if="{{messages.length === 0}}" class="empty">
+        <text>点击下方按钮开始对话</text>
+      </view>
+    </scroll-view>
+  </view>
+
+  <view class="meta">
+    <text>链路：{{wsHost}} → STT → Qwen-Plus → TTS(Cherry) → 扬声器</text>
+  </view>
+</view>

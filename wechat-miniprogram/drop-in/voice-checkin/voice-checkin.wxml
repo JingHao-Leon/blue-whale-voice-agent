@@ -1,0 +1,43 @@
+<view class="container">
+  <view class="header">
+    <text class="title">📞 语音访客登记</text>
+    <text class="subtitle">按住按钮说话，自动登记信息</text>
+  </view>
+
+  <view class="status-bar">
+    <text class="status-dot {{connected ? 'on' : 'off'}}">●</text>
+    <text class="status-text">{{status}}</text>
+  </view>
+
+  <view class="controls">
+    <button
+      class="mic-btn {{recording ? 'recording' : ''}}"
+      bindtap="onMicTap"
+      disabled="{{!connected}}"
+      hover-class="none"
+    >
+      <text class="mic-icon">{{recording ? '⏹' : '🎙'}}</text>
+      <text class="mic-text">{{recording ? '点击结束' : '点击开始'}}</text>
+    </button>
+  </view>
+
+  <view class="log-panel">
+    <view class="log-title">对话记录</view>
+    <scroll-view class="log" scroll-y="true" scroll-into-view="{{lastMsgId}}">
+      <block wx:for="{{messages}}" wx:key="id">
+        <view id="msg-{{item.id}}" class="bubble-row {{item.kind}}">
+          <view class="bubble {{item.kind}}">
+            <text>{{item.text}}</text>
+          </view>
+        </view>
+      </block>
+      <view wx:if="{{messages.length === 0}}" class="empty">
+        <text>点击按钮开始</text>
+      </view>
+    </scroll-view>
+  </view>
+
+  <view class="meta">
+    <text>链路：{{wsHost}} → 语音 AI</text>
+  </view>
+</view>
