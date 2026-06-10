@@ -1,0 +1,30 @@
+{
+  "started_at": "2026-06-07T21:26:48",
+  "finished_at": "2026-06-07T21:26:58",
+  "mode": "tts",
+  "total_calls": 1,
+  "concurrency": 1,
+  "scenarios": [
+    "happy"
+  ],
+  "results": [
+    {
+      "call_id": "CA88729341517659476913041541209984",
+      "scenario": "happy",
+      "success": false,
+      "error": "",
+      "t_start": 48022.271522208,
+      "t_first_byte": 1.8619900830017286,
+      "t_call_end": 10.254904708002869,
+      "agent_audio_frames": 16,
+      "agent_audio_bytes": 97920,
+      "user_audio_frames_sent": 473,
+      "user_audio_bytes_sent": 75520,
+      "agent_final_text": "",
+      "wechat_sent": false
+    }
+  ],
+  "server": "http://127.0.0.1:8765",
+  "notes": "",
+  "duration_s": 10.26
+}

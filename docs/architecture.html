@@ -1,0 +1,1960 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voice Agent · 蓝色鲸鱼科技园 · 架构探索</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Noto+Serif+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f7f5f0;
+    --surface: #ffffff;
+    --line: #e9e3d6;
+    --line-soft: #f0ebde;
+    --text: #14171e;
+    --text-2: #3a4256;
+    --muted: #7c7a72;
+    --primary: #2f6f5e;
+    --primary-soft: rgba(47, 111, 94, 0.08);
+    --accent: #c97b3f;
+    --accent-soft: rgba(201, 123, 63, 0.10);
+    --warn: #b06367;
+    --pstn: #6366f1;
+    --pstn-soft: rgba(99, 102, 241, 0.08);
+    --ws: #10b981;
+    --ws-soft: rgba(16, 185, 129, 0.08);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Outfit', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.55;
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+  }
+  body::before, body::after {
+    content: ""; position: fixed; pointer-events: none; z-index: 0;
+    width: 600px; height: 600px; border-radius: 50%;
+  }
+  body::before { top: -200px; right: -200px; background: radial-gradient(circle, var(--primary-soft), transparent 70%); }
+  body::after  { bottom: -300px; left: -200px; background: radial-gradient(circle, var(--accent-soft), transparent 70%); }
+
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 56px 28px 80px; position: relative; z-index: 1; }
+
+  /* === Hero === */
+  .hero { margin-bottom: 64px; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12px; font-weight: 500; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--primary);
+    background: var(--primary-soft); padding: 6px 12px; border-radius: 999px;
+    margin-bottom: 20px;
+  }
+  .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--primary); animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+  h1 {
+    font-family: 'DM Serif Display', 'Noto Serif SC', serif;
+    font-size: 44px; font-weight: 400; line-height: 1.15;
+    letter-spacing: -0.01em; margin: 0 0 16px;
+  }
+  h1 .accent { color: var(--primary); font-style: italic; }
+  .hero p.lede {
+    font-size: 17px; color: var(--text-2); max-width: 720px; margin: 0 0 32px;
+  }
+  .meta-row { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+  .meta-row span { display: inline-flex; align-items: center; gap: 6px; }
+
+  /* === Section === */
+  section { margin-top: 80px; }
+  .sec-num {
+    font-family: 'DM Serif Display', serif; font-style: italic;
+    font-size: 14px; color: var(--accent); letter-spacing: 0.1em;
+    margin-bottom: 6px;
+  }
+  h2 {
+    font-family: 'DM Serif Display', 'Noto Serif SC', serif;
+    font-size: 30px; font-weight: 400; line-height: 1.2;
+    margin: 0 0 12px; letter-spacing: -0.005em;
+  }
+  h2 .luc { display: inline-block; vertical-align: middle; margin-right: 10px; color: var(--primary); }
+  .sec-lede { color: var(--text-2); max-width: 720px; margin: 0 0 32px; font-size: 15.5px; }
+
+  /* === Cards / surfaces === */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+  }
+  .card.bordered { border: 1px solid var(--line); }
+  .card-title { font-size: 14px; font-weight: 600; color: var(--text); margin: 0 0 4px; }
+  .card-sub { font-size: 12.5px; color: var(--muted); margin: 0 0 16px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  @media (max-width: 800px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+
+  /* === Architecture diagram === */
+  .arch-svg {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+    padding: 24px; overflow-x: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+  }
+  .arch-svg svg { display: block; min-width: 800px; width: 100%; height: auto; }
+  .arch-node { cursor: pointer; transition: transform 0.15s; }
+  .arch-node:hover { transform: translateY(-1px); }
+  .arch-node rect { transition: stroke 0.2s, filter 0.2s; }
+  .arch-node:hover rect { stroke: var(--primary); filter: drop-shadow(0 2px 4px rgba(47,111,94,0.15)); }
+  .arch-label { font-family: 'Outfit', sans-serif; font-size: 12.5px; font-weight: 600; fill: var(--text); }
+  .arch-sub { font-family: 'Outfit', sans-serif; font-size: 10.5px; fill: var(--muted); }
+  .arch-arrow { stroke: var(--muted); stroke-width: 1.5; fill: none; opacity: 0.6; }
+  .arch-arrow-label { font-family: 'Outfit', sans-serif; font-size: 10px; fill: var(--muted); }
+
+  /* === Code peek modal === */
+  .peek {
+    position: fixed; inset: 0; background: rgba(20, 23, 30, 0.55);
+    display: none; align-items: center; justify-content: center; z-index: 100;
+    padding: 24px; backdrop-filter: blur(2px);
+  }
+  .peek.open { display: flex; }
+  .peek-panel {
+    background: var(--surface); border-radius: 14px; max-width: 760px; width: 100%;
+    max-height: 80vh; overflow: hidden; display: flex; flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  }
+  .peek-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 16px 20px; border-bottom: 1px solid var(--line);
+  }
+  .peek-path { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--primary); }
+  .peek-close {
+    background: none; border: none; cursor: pointer; padding: 4px;
+    color: var(--muted); border-radius: 4px; font-size: 18px; line-height: 1;
+  }
+  .peek-close:hover { background: var(--line-soft); color: var(--text); }
+  .peek-body { overflow-y: auto; padding: 18px 20px; }
+  .peek-body pre {
+    font-family: 'JetBrains Mono', monospace; font-size: 12.5px;
+    background: #fbf9f4; border: 1px solid var(--line); border-radius: 8px;
+    padding: 14px; margin: 0; overflow-x: auto; line-height: 1.5;
+  }
+  .peek-body .ln { color: var(--muted); user-select: none; margin-right: 12px; }
+  .peek-body .kw { color: #b06367; }
+  .peek-body .str { color: #2f6f5e; }
+  .peek-body .com { color: var(--muted); font-style: italic; }
+  .peek-body .fn { color: #6366f1; }
+  .peek-note { font-size: 13px; color: var(--text-2); margin: 12px 0 8px; }
+
+  /* === Step timeline === */
+  .timeline { list-style: none; padding: 0; margin: 0; position: relative; }
+  .timeline::before {
+    content: ""; position: absolute; left: 14px; top: 6px; bottom: 6px;
+    width: 2px; background: var(--primary); opacity: 0.25;
+  }
+  .timeline li { position: relative; padding: 0 0 28px 52px; cursor: pointer; }
+  .timeline li::before {
+    content: ""; position: absolute; left: 4px; top: 4px;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--surface); border: 3px solid var(--primary);
+    transition: all 0.2s;
+  }
+  .timeline li:hover::before { background: var(--primary); }
+  .timeline li:hover::before { box-shadow: 0 0 0 6px var(--primary-soft); }
+  .timeline .step-num {
+    position: absolute; left: 8px; top: 6px; width: 14px; text-align: center;
+    font-size: 10px; font-weight: 700; color: var(--primary);
+  }
+  .timeline h3 {
+    font-size: 17px; font-weight: 600; margin: 0 0 4px; color: var(--text);
+  }
+  .timeline p { color: var(--text-2); margin: 0; font-size: 14px; }
+  .timeline .file-hint {
+    display: inline-block; margin-top: 6px; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; color: var(--primary); background: var(--primary-soft);
+    padding: 2px 8px; border-radius: 4px;
+  }
+  .timeline li:hover h3 { color: var(--primary); }
+
+  /* === Two-track comparison === */
+  .track-card { border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+  .track-card.ws   { background: var(--ws-soft);   border-color: rgba(16,185,129,0.25); }
+  .track-card.pstn { background: var(--pstn-soft); border-color: rgba(99,102,241,0.25); }
+  .track-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .track-tag {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 4px; color: white;
+  }
+  .track-tag.ws   { background: var(--ws); }
+  .track-tag.pstn { background: var(--pstn); }
+  .track-head h3 { font-size: 16px; font-weight: 600; margin: 0; }
+  .track-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .track-table th, .track-table td { text-align: left; padding: 6px 0; }
+  .track-table th { font-weight: 500; color: var(--muted); width: 110px; vertical-align: top; }
+  .track-table td { color: var(--text-2); }
+  .track-table tr { border-bottom: 1px dashed var(--line); }
+  .track-table tr:last-child { border-bottom: none; }
+  .track-table code {
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    background: rgba(255,255,255,0.5); padding: 1px 5px; border-radius: 3px;
+  }
+
+  /* === Interactive: State machine playground === */
+  .playground { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 28px; }
+  .pg-row { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+  .pg-form { flex: 1 1 380px; }
+  .pg-result { flex: 1 1 320px; }
+  .pg-form label { display: block; font-size: 12.5px; color: var(--muted); margin: 14px 0 4px; font-weight: 500; }
+  .pg-form input[type="text"] {
+    width: 100%; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 13.5px; background: #fbf9f4;
+    color: var(--text); transition: all 0.2s;
+  }
+  .pg-form input[type="text"]:focus { outline: none; border-color: var(--primary); background: white; box-shadow: 0 0 0 3px var(--primary-soft); }
+  .pg-form .checkbox { display: flex; align-items: center; gap: 8px; margin: 16px 0 0; font-size: 13px; color: var(--text-2); cursor: pointer; }
+  .pg-form .checkbox input { width: 16px; height: 16px; cursor: pointer; }
+  .slots { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+  .slot { font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 4px 10px; border-radius: 6px; background: var(--line-soft); color: var(--text-2); border: 1px solid transparent; }
+  .slot.filled { background: var(--primary-soft); color: var(--primary); border-color: var(--primary); }
+  .slot.required { font-weight: 600; }
+  .verdict { border-radius: 12px; padding: 18px; margin-top: 8px; }
+  .verdict.complete { background: var(--primary-soft); border: 1px solid var(--primary); }
+  .verdict.incomplete { background: var(--accent-soft); border: 1px solid var(--accent); }
+  .verdict-h { font-size: 14px; font-weight: 600; margin: 0 0 8px; display: flex; align-items: center; gap: 8px; }
+  .verdict.complete .verdict-h { color: var(--primary); }
+  .verdict.incomplete .verdict-h { color: var(--accent); }
+  .verdict p { margin: 4px 0; font-size: 13px; color: var(--text-2); }
+  .verdict code { font-family: 'JetBrains Mono', monospace; background: rgba(255,255,255,0.6); padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+  .wechat-card {
+    margin-top: 16px; background: #f0f7f5; border: 1px solid #cce0d9;
+    border-radius: 10px; padding: 14px 16px; font-size: 13px; color: #2a443e;
+    font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    line-height: 1.7; white-space: pre-wrap; display: none;
+  }
+  .wechat-card.show { display: block; }
+  .wechat-card .card-tag { font-size: 11px; background: #2f6f5e; color: white; padding: 2px 6px; border-radius: 3px; margin-right: 6px; font-family: 'Outfit', sans-serif; }
+
+  /* === Provider registry table === */
+  .reg-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .reg-table th { text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); padding: 8px 12px; border-bottom: 2px solid var(--line); }
+  .reg-table td { padding: 12px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  .reg-table tr:last-child td { border-bottom: none; }
+  .reg-table .name { font-family: 'JetBrains Mono', monospace; color: var(--primary); font-weight: 600; }
+  .reg-table .badge { display: inline-block; font-size: 10.5px; padding: 2px 6px; border-radius: 3px; margin-left: 6px; font-weight: 600; }
+  .reg-table .badge.streaming { background: var(--primary-soft); color: var(--primary); }
+  .reg-table .badge.no-stream { background: var(--line-soft); color: var(--muted); }
+  .reg-table .arrow { color: var(--accent); font-family: 'JetBrains Mono', monospace; }
+
+  /* === Tools registry === */
+  .tool-row { display: grid; grid-template-columns: 220px 1fr; gap: 24px; padding: 18px 0; border-bottom: 1px dashed var(--line); }
+  .tool-row:last-child { border-bottom: none; }
+  .tool-name { font-family: 'JetBrains Mono', monospace; font-size: 14px; color: var(--primary); font-weight: 600; }
+  .tool-desc { font-size: 13.5px; color: var(--text-2); margin-top: 4px; line-height: 1.5; }
+  .tool-params { margin-top: 8px; }
+  .tool-params summary { font-size: 12px; color: var(--muted); cursor: pointer; user-select: none; }
+  .tool-params summary:hover { color: var(--primary); }
+  .tool-params ul { margin: 8px 0 0; padding-left: 20px; font-size: 12.5px; color: var(--text-2); }
+  .tool-params li { margin: 3px 0; }
+  .tool-params code { font-family: 'JetBrains Mono', monospace; background: var(--line-soft); padding: 1px 5px; border-radius: 3px; }
+
+  /* === Refactor diff === */
+  .diff { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .diff-pane { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  .diff-pane.before { border-left: 3px solid var(--warn); }
+  .diff-pane.after  { border-left: 3px solid var(--primary); }
+  .diff-pane h4 { font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 600; margin: 0 0 12px; }
+  .diff-pane.before h4 { color: var(--warn); }
+  .diff-pane.after  h4 { color: var(--primary); }
+  .diff-pane .line { padding: 2px 0; line-height: 1.5; }
+  .diff-pane .line.add { color: var(--primary); }
+  .diff-pane .line.add::before { content: "+ "; opacity: 0.6; }
+  .diff-pane .line.del { color: var(--warn); text-decoration: line-through; opacity: 0.85; }
+  .diff-pane .line.del::before { content: "− "; opacity: 0.6; }
+  .diff-pane .line.ctx { color: var(--muted); }
+  .diff-pane .line.ctx::before { content: "  "; }
+  @media (max-width: 800px) { .diff { grid-template-columns: 1fr; } }
+
+  /* === Footer === */
+  footer { margin-top: 80px; padding-top: 32px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12.5px; text-align: center; }
+
+  /* === Toggle === */
+  .toggle-row { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .toggle-btn {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: 6px 12px; font-size: 13px; color: var(--text-2); cursor: pointer;
+    transition: all 0.15s; font-family: 'Outfit', sans-serif;
+  }
+  .toggle-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .toggle-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+  /* === Schema anatomy === */
+  .schema-grid { display: grid; grid-template-columns: 110px 1fr 1fr; gap: 0; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; background: #fbf9f4; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .schema-grid > div { padding: 10px 14px; border-bottom: 1px solid var(--line-soft); }
+  .schema-grid > div:nth-last-child(-n+3) { border-bottom: none; }
+  .schema-grid .lbl { color: var(--muted); font-family: 'Outfit', sans-serif; font-size: 12.5px; }
+  .schema-grid .lbl strong { color: var(--primary); display: block; font-size: 13.5px; margin-bottom: 2px; font-weight: 600; }
+  .schema-grid .code-val { color: var(--text); }
+  .schema-grid .code-val .k { color: #b06367; }
+  .schema-grid .code-val .s { color: #2f6f5e; }
+
+  /* === Schema anatomy tabs (live editor) === */
+  .schema-live { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px; }
+  .schema-editor { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 800px) { .schema-editor { grid-template-columns: 1fr; } }
+  .schema-editor textarea {
+    width: 100%; min-height: 280px; font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 8px;
+    background: #fbf9f4; color: var(--text); line-height: 1.5; resize: vertical;
+  }
+  .schema-preview { background: #1a1f2c; color: #e6e8eb; border-radius: 8px; padding: 14px; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.55; overflow-x: auto; white-space: pre; min-height: 280px; }
+  .schema-preview .k { color: #ffb84d; }
+  .schema-preview .s { color: #3ecf8e; }
+  .schema-preview .c { color: #8b95a7; font-style: italic; }
+  .schema-preview .d { color: #4f8cff; }
+  .schema-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+  .schema-tab { padding: 6px 12px; font-size: 12.5px; background: var(--line-soft); border: 1px solid var(--line); border-radius: 6px; cursor: pointer; color: var(--text-2); font-family: 'Outfit', sans-serif; }
+  .schema-tab.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+  /* === Step by step (numbered) === */
+  .numbered-steps { counter-reset: n; padding: 0; list-style: none; }
+  .numbered-steps li {
+    counter-increment: n;
+    position: relative; padding: 0 0 20px 50px;
+    border-left: 2px dashed var(--line); margin-left: 14px;
+  }
+  .numbered-steps li::before {
+    content: counter(n); position: absolute; left: -15px; top: 0;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--surface); border: 2px solid var(--primary);
+    color: var(--primary); font-weight: 700; font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Outfit', sans-serif;
+  }
+  .numbered-steps li strong { display: block; font-size: 14.5px; color: var(--text); margin-bottom: 4px; }
+  .numbered-steps li p { margin: 0; color: var(--text-2); font-size: 13.5px; }
+  .numbered-steps li code { font-family: 'JetBrains Mono', monospace; font-size: 12px; background: var(--line-soft); padding: 1px 5px; border-radius: 3px; }
+
+  /* === Reveal accordion === */
+  .reveal { border: 1px solid var(--line); border-radius: 10px; margin-bottom: 10px; overflow: hidden; background: var(--surface); }
+  .reveal-h { padding: 12px 16px; cursor: pointer; display: flex; align-items: center; gap: 10px; user-select: none; transition: background 0.15s; }
+  .reveal-h:hover { background: var(--line-soft); }
+  .reveal-h .num { width: 22px; height: 22px; border-radius: 50%; background: var(--primary-soft); color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+  .reveal-h .ttl { font-size: 14px; font-weight: 600; flex: 1; }
+  .reveal-h .arr { color: var(--muted); transition: transform 0.2s; }
+  .reveal.open .reveal-h .arr { transform: rotate(90deg); }
+  .reveal-b { display: none; padding: 0 16px 16px; border-top: 1px solid var(--line-soft); padding-top: 14px; }
+  .reveal.open .reveal-b { display: block; }
+  .reveal-b pre { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; background: #fbf9f4; border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin: 8px 0; overflow-x: auto; line-height: 1.5; }
+  .reveal-b .note { font-size: 12.5px; color: var(--text-2); margin: 6px 0; }
+  .reveal-b .note code { font-family: 'JetBrains Mono', monospace; background: var(--line-soft); padding: 1px 5px; border-radius: 3px; }
+
+  /* === Tip box === */
+  .tip { display: flex; gap: 12px; padding: 14px 16px; border-radius: 10px; margin: 12px 0; font-size: 13px; }
+  .tip.warn { background: rgba(176, 99, 103, 0.08); border-left: 3px solid var(--warn); color: #6a3a3d; }
+  .tip.info { background: var(--primary-soft); border-left: 3px solid var(--primary); color: #1f4438; }
+  .tip .ic { font-size: 16px; flex-shrink: 0; }
+
+  /* === Hand-written description comparison === */
+  .desc-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .desc-compare > div { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  .desc-compare .bad  { border-left: 3px solid var(--warn); }
+  .desc-compare .good { border-left: 3px solid var(--primary); }
+  .desc-compare h4 { font-size: 12px; margin: 0 0 8px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+  .desc-compare .bad  h4 { color: var(--warn); }
+  .desc-compare .good h4 { color: var(--primary); }
+  .desc-compare p { font-size: 13px; color: var(--text-2); margin: 0; line-height: 1.5; }
+  @media (max-width: 800px) { .desc-compare { grid-template-columns: 1fr; } }
+
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ====================== HERO ====================== -->
+  <header class="hero">
+    <div class="eyebrow"><span class="dot"></span>Voice Agent · 蓝色鲸鱼科技园</div>
+    <h1>一通访客电话的<br><span class="accent">端到端之旅</span></h1>
+    <p class="lede">
+      从园区门口的电话铃响、或浏览器里点下"开始录音"的那一刻起，到门卫微信群里弹出访客登记卡片——这个 voice agent 串起了 STT、LLM、TTS、Twilio 四个世界。
+      这页把它的架构拆给你看，每张图都能点，每段代码都能查。
+    </p>
+    <div class="meta-row">
+      <span>📞 Twilio Media Streams</span>
+      <span>🌐 浏览器 WebSocket</span>
+      <span>🧠 Qwen3 / OpenAI 兼容</span>
+      <span>🔊 阿里 CosyVoice / Edge / OpenAI TTS</span>
+      <span>📱 微信群 webhook</span>
+    </div>
+  </header>
+
+  <!-- ====================== §0 主架构图 ====================== -->
+  <section>
+    <div class="sec-num">§ 0</div>
+    <h2><svg class="luc" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>主架构图</h2>
+    <p class="sec-lede">整个系统就分这么几块。点击任意节点看真实代码。</p>
+
+    <div class="arch-svg">
+      <svg viewBox="0 0 1000 460" xmlns="http://www.w3.org/2000/svg">
+        <!-- defs -->
+        <defs>
+          <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#7c7a72"/></marker>
+        </defs>
+
+        <!-- 入口：两条路 -->
+        <g class="arch-node" data-peek="browser">
+          <rect x="20" y="40" width="150" height="70" rx="10" fill="#ffffff" stroke="#10b981" stroke-width="1.5"/>
+          <text class="arch-label" x="95" y="65" text-anchor="middle">🌐 浏览器</text>
+          <text class="arch-sub"   x="95" y="82" text-anchor="middle">/browser-test</text>
+          <text class="arch-sub"   x="95" y="97" text-anchor="middle">PCM 16kHz</text>
+        </g>
+        <g class="arch-node" data-peek="twilio">
+          <rect x="20" y="180" width="150" height="70" rx="10" fill="#ffffff" stroke="#6366f1" stroke-width="1.5"/>
+          <text class="arch-label" x="95" y="205" text-anchor="middle">📞 Twilio</text>
+          <text class="arch-sub"   x="95" y="222" text-anchor="middle">Media Streams</text>
+          <text class="arch-sub"   x="95" y="237" text-anchor="middle">μ-law 8kHz</text>
+        </g>
+
+        <!-- 入口 handlers -->
+        <g class="arch-node" data-peek="browser_run">
+          <rect x="220" y="40" width="160" height="70" rx="10" fill="#ffffff" stroke="#10b981" stroke-width="1.5"/>
+          <text class="arch-label" x="300" y="65" text-anchor="middle">BrowserSession</text>
+          <text class="arch-sub"   x="300" y="82" text-anchor="middle">app/services/</text>
+          <text class="arch-sub"   x="300" y="97" text-anchor="middle">browser_session.py:149</text>
+        </g>
+        <g class="arch-node" data-peek="twilio_run">
+          <rect x="220" y="180" width="160" height="70" rx="10" fill="#ffffff" stroke="#6366f1" stroke-width="1.5"/>
+          <text class="arch-label" x="300" y="205" text-anchor="middle">TwilioCall</text>
+          <text class="arch-sub"   x="300" y="222" text-anchor="middle">app/services/</text>
+          <text class="arch-sub"   x="300" y="237" text-anchor="middle">twilio_handler.py:48</text>
+        </g>
+
+        <!-- 共享：STT registry -->
+        <g class="arch-node" data-peek="stt">
+          <rect x="430" y="20" width="150" height="80" rx="10" fill="#ffffff" stroke="#c97b3f" stroke-width="1.5"/>
+          <text class="arch-label" x="505" y="45" text-anchor="middle">STT Registry</text>
+          <text class="arch-sub"   x="505" y="62" text-anchor="middle">make_transcriber()</text>
+          <text class="arch-sub"   x="505" y="78" text-anchor="middle">百炼 → Deepgram → Whisper</text>
+        </g>
+
+        <!-- 共享：VisitorLLMAgent -->
+        <g class="arch-node" data-peek="agent">
+          <rect x="430" y="130" width="150" height="80" rx="10" fill="#ffffff" stroke="#2f6f5e" stroke-width="2"/>
+          <text class="arch-label" x="505" y="155" text-anchor="middle">🧠 VisitorLLMAgent</text>
+          <text class="arch-sub"   x="505" y="172" text-anchor="middle">app/agent.py:56</text>
+          <text class="arch-sub"   x="505" y="188" text-anchor="middle">state machine + tool calls</text>
+        </g>
+
+        <!-- 共享：Tools -->
+        <g class="arch-node" data-peek="tools">
+          <rect x="430" y="240" width="150" height="80" rx="10" fill="#ffffff" stroke="#b06367" stroke-width="1.5"/>
+          <text class="arch-label" x="505" y="265" text-anchor="middle">🔧 TOOLS_REGISTRY</text>
+          <text class="arch-sub"   x="505" y="282" text-anchor="middle">app/tools/__init__.py</text>
+          <text class="arch-sub"   x="505" y="298" text-anchor="middle">2 tools · extensible</text>
+        </g>
+
+        <!-- 共享：TTS -->
+        <g class="arch-node" data-peek="tts">
+          <rect x="430" y="350" width="150" height="80" rx="10" fill="#ffffff" stroke="#c97b3f" stroke-width="1.5"/>
+          <text class="arch-label" x="505" y="375" text-anchor="middle">TTS Registry</text>
+          <text class="arch-sub"   x="505" y="392" text-anchor="middle">pick_provider()</text>
+          <text class="arch-sub"   x="505" y="408" text-anchor="middle">百炼 → Edge → OpenAI</text>
+        </g>
+
+        <!-- LLM -->
+        <g class="arch-node" data-peek="llm">
+          <rect x="640" y="160" width="140" height="60" rx="10" fill="#ffffff" stroke="#2f6f5e" stroke-width="1.5" stroke-dasharray="4 2"/>
+          <text class="arch-label" x="710" y="183" text-anchor="middle">LLM API</text>
+          <text class="arch-sub"   x="710" y="200" text-anchor="middle">Qwen3 / GPT-4o / 任意</text>
+        </g>
+
+        <!-- VisitorInfo + DB -->
+        <g class="arch-node" data-peek="schemas">
+          <rect x="640" y="50" width="140" height="70" rx="10" fill="#ffffff" stroke="#2f6f5e" stroke-width="1.5"/>
+          <text class="arch-label" x="710" y="75" text-anchor="middle">VisitorInfo</text>
+          <text class="arch-sub"   x="710" y="92" text-anchor="middle">Pydantic + SQLite</text>
+        </g>
+
+        <!-- WeChat -->
+        <g class="arch-node" data-peek="wechat">
+          <rect x="640" y="350" width="140" height="70" rx="10" fill="#ffffff" stroke="#b06367" stroke-width="1.5"/>
+          <text class="arch-label" x="710" y="375" text-anchor="middle">📱 微信群</text>
+          <text class="arch-sub"   x="710" y="392" text-anchor="middle">webhook bot</text>
+        </g>
+
+        <!-- arrows -->
+        <path class="arch-arrow" d="M 170 75 L 218 75" marker-end="url(#arr)"/>
+        <path class="arch-arrow" d="M 170 215 L 218 215" marker-end="url(#arr)"/>
+        <path class="arch-arrow" d="M 300 110 L 300 145 L 425 145" marker-end="url(#arr)"/>
+        <path class="arch-arrow" d="M 300 250 L 300 285 L 425 285" marker-end="url(#arr)"/>
+        <path class="arch-arrow" d="M 380 75 L 425 60" marker-end="url(#arr)"/>
+        <path class="arch-arrow" d="M 380 215 L 425 90" marker-end="url(#arr)"/>
+        <path class="arch-arrow" d="M 380 75 L 425 170" marker-end="url(#arr)"/>
+        <path class="arch-arrow" d="M 380 215 L 425 180" marker-end="url(#arr)"/>
+        <path class="arch-arrow" d="M 380 215 L 425 390" marker-end="url(#arr)"/>
+        <path class="arch-arrow" d="M 580 170 L 638 185" marker-end="url(#arr)"/>
+        <path class="arch-arrow" d="M 580 170 L 638 100" marker-end="url(#arr)"/>
+        <path class="arch-arrow" d="M 580 285 L 638 385" marker-end="url(#arr)"/>
+
+        <!-- 反馈回路标注 -->
+        <text class="arch-arrow-label" x="700" y="155" text-anchor="middle">function call</text>
+        <text class="arch-arrow-label" x="700" y="320" text-anchor="middle">to_wechat_card()</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- ====================== §1 一通电话 ====================== -->
+  <section>
+    <div class="sec-num">§ 1</div>
+    <h2><svg class="luc" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>一通电话的完整 6 步</h2>
+    <p class="sec-lede">从电话铃响到微信群弹出卡片，每步都点得开看代码。</p>
+
+    <ol class="timeline">
+      <li data-peek="step1">
+        <h3>① 电话接入 — 路由分配</h3>
+        <p>Twilio 触发 webhook（`/twilio/voice`），FastAPI 把这个 WebSocket 升级为 `TwilioCall` 实例；浏览器那边则直接 `BrowserSession.run()` accept WS。</p>
+        <span class="file-hint">app/main.py · app/services/{twilio_handler,browser_session}.py</span>
+      </li>
+      <li data-peek="step2">
+        <h3>② STT 开始转写 — 边听边记</h3>
+        <p>音频字节流送进 `make_transcriber()` 选出的 STT（百炼 Paraformer 优先）。STT 在 WebSocket 里推 `TranscriptEvent`（interim / final），后台 task drain 到 `messages` 队列。</p>
+        <span class="file-hint">app/services/stt.py:527 · make_transcriber()</span>
+      </li>
+      <li data-peek="step3">
+        <h3>③ 用户说完一段 — 推给 LLM</h3>
+        <p>VAD 检测到 1.44s 静音（`_on_pcm` 的服务端静音帧算法）→ STT 标 `speech_final` → `push_user_utterance(text)` 把这段写进 agent 的 OpenAI `messages` 列表。</p>
+        <span class="file-hint">app/services/browser_session.py:276 · VisitorLLMAgent.push_user_utterance:91</span>
+      </li>
+      <li data-peek="step4">
+        <h3>④ LLM 决定下一步 — tool calling</h3>
+        <p>`step()` 调 `chat.completions.create(tools=TOOLS_SCHEMA)`，LLM 可能调 `update_visitor_info` 填一两个槽，或者直接调 `send_to_guard_and_end_call` 挂电话。每个 tool 在 `app/tools/__init__.py` 里有独立 handler。</p>
+        <span class="file-hint">app/agent.py:99 step() · app/tools/__init__.py:145 TOOLS_REGISTRY</span>
+      </li>
+      <li data-peek="step5">
+        <h3>⑤ TTS 把回复念出来</h3>
+        <p>LLM 吐的 `text_to_speak` 送进 `synthesize_to_*` —— `pick_provider()` 选最佳 TTS（百炼 CosyVoice 流式优先），转成 μ-law 8kHz（Twilio）或 PCM 16kHz（浏览器）推回客户端。</p>
+        <span class="file-hint">app/services/tts.py:192 pick_provider · :220 synthesize_to_mulaw8k</span>
+      </li>
+      <li data-peek="step6">
+        <h3>⑥ 结束 — 通知门卫 + 挂电话</h3>
+        <p>当 LLM 调 `send_to_guard_and_end_call`（或者后置保险 `_looks_like_goodbye` + `is_complete()` 命中）→ `to_wechat_card()` 渲染 Markdown 卡片发到门卫群 → Twilio/Browser 收到 `is_final=True` → 挂电话。`VisitorInfo` 落 SQLite 留档。</p>
+        <span class="file-hint">app/schemas.py:92 to_wechat_card · app/services/wechat.py</span>
+      </li>
+    </ol>
+  </section>
+
+  <!-- ====================== §2 两条路 ====================== -->
+  <section>
+    <div class="sec-num">§ 2</div>
+    <h2><svg class="luc" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>两条路怎么走</h2>
+    <p class="sec-lede">同一个 LLM agent，两条完全不同的运输管道。差别在<strong>音频格式</strong>、<strong>传输</strong>、<strong>TTS 出口</strong>。</p>
+
+    <div class="grid-2">
+      <div class="track-card ws">
+        <div class="track-head">
+          <span class="track-tag ws">WebSocket</span>
+          <h3>🌐 浏览器 / WebRTC 测试页</h3>
+        </div>
+        <table class="track-table">
+          <tr><th>入口</th><td><code>ws://host/ws/browser</code></td></tr>
+          <tr><th>音频</th><td>PCM int16 LE mono · 16 kHz · 80ms 一片</td></tr>
+          <tr><th>VAD</th><td>服务端 RMS 能量 · 18×80ms 静音 = 1.44s</td></tr>
+          <tr><th>STT</th><td>直接送 16kHz（之前 16→8k downsample 把 "选" 砍废了）</td></tr>
+          <tr><th>TTS 出口</th><td><code>synthesize_to_pcm16k</code> → 80ms 一片</td></tr>
+          <tr><th>打断 (barge-in)</th><td>前端 JSON <code>{type:"barge_in"}</code> → flush STT partial</td></tr>
+          <tr><th>适用</th><td>本地测试 / take-home demo / 园区大屏 kiosk</td></tr>
+        </table>
+      </div>
+
+      <div class="track-card pstn">
+        <div class="track-head">
+          <span class="track-tag pstn">PSTN</span>
+          <h3>📞 Twilio Media Streams</h3>
+        </div>
+        <table class="track-table">
+          <tr><th>入口</th><td><code>POST /twilio/voice</code> + WS upgrade</td></tr>
+          <tr><th>音频</th><td>μ-law · 8 kHz · base64 in JSON</td></tr>
+          <tr><th>VAD</th><td>依赖 STT 提供方（Deepgram/Bailian）原生 VAD</td></tr>
+          <tr><th>STT</th><td>Deepgram nova-2 / 百炼 Paraformer 接受 μ-law 8k</td></tr>
+          <tr><th>TTS 出口</th><td><code>synthesize_to_mulaw8k</code> 或 <code>..._streaming_mulaw8k</code></td></tr>
+          <tr><th>打断</th><td>Twilio 媒体流天然支持，agent 收到新 STT final 即停</td></tr>
+          <tr><th>适用</th><td>真实来电路径 · 园区门卫 / 客服外呼</td></tr>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================== §3 状态机 playground ====================== -->
+  <section>
+    <div class="sec-num">§ 3 · 玩一下</div>
+    <h2><svg class="luc" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>VisitorInfo 状态机</h2>
+    <p class="sec-lede">试着填槽位，看 `is_complete()` 什么时候变绿——这就是 LLM 调 <code>send_to_guard_and_end_call</code> 的依据。</p>
+
+    <div class="playground">
+      <div class="pg-row">
+        <div class="pg-form">
+          <label>车牌号 plate <span style="color:var(--warn)">*</span></label>
+          <input type="text" id="plate" placeholder="例：陕A12345" value="陕A12345">
+
+          <label>来访事由 reason <span style="color:var(--warn)">*</span></label>
+          <input type="text" id="reason" placeholder="例：送货" value="送货">
+
+          <label>联系电话 phone <span style="color:var(--warn)">*</span></label>
+          <input type="text" id="phone" placeholder="例：13800138000" value="13800138000">
+
+          <label>受访公司 company</label>
+          <input type="text" id="company" placeholder="例：蓝色鲸鱼科技" value="蓝色鲸鱼科技">
+
+          <label>访客姓名 contact_name</label>
+          <input type="text" id="contact_name" placeholder="例：王师傅" value="王师傅">
+
+          <label>预计停留 duration</label>
+          <input type="text" id="duration" placeholder="例：2小时" value="">
+
+          <label class="checkbox">
+            <input type="checkbox" id="is_returning">
+            <span>is_returning = true（回访用户走捷径）</span>
+          </label>
+        </div>
+
+        <div class="pg-result">
+          <div class="slots" id="slots-display"></div>
+          <div class="verdict" id="verdict"></div>
+          <div class="wechat-card" id="wechat-card"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================== §4 STT / TTS registry ====================== -->
+  <section>
+    <div class="sec-num">§ 4</div>
+    <h2><svg class="luc" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>STT / TTS · Provider Registry</h2>
+    <p class="sec-lede">重构后，加新 provider 只改一处：`PROVIDERS` 列表里 append 一行。三个公开 API（mulaw8k / pcm16k / streaming）共享同一份优先级链。</p>
+
+    <h3 style="font-size:16px; margin: 24px 0 8px; color:var(--text-2);">STT — <code>app/services/stt.py:527</code></h3>
+    <div class="card" style="padding:0; overflow:hidden;">
+      <table class="reg-table">
+        <thead>
+          <tr><th>Provider</th><th>模型</th><th>流式?</th><th>音频格式</th><th>优先级</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="name">BailianParaformerTranscriber <span class="badge streaming">streaming</span></td><td>paraformer-realtime-v2</td><td>WebSocket 增量</td><td>PCM 16k (browser) / μ-law 8k (Twilio)</td><td class="arrow">1st</td></tr>
+          <tr><td class="name">DeepgramTranscriber <span class="badge streaming">streaming</span></td><td>nova-2</td><td>WebSocket 增量</td><td>μ-law 8k 原生</td><td class="arrow">2nd</td></tr>
+          <tr><td class="name">OpenAIWhisperTranscriber <span class="badge no-stream">batch</span></td><td>whisper-1</td><td>整段上传</td><td>任意（API 内部转）</td><td class="arrow">3rd</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="font-size:16px; margin: 32px 0 8px; color:var(--text-2);">TTS — <code>app/services/tts.py:192 pick_provider()</code></h3>
+    <div class="card" style="padding:0; overflow:hidden;">
+      <table class="reg-table">
+        <thead>
+          <tr><th>Provider</th><th>实现</th><th>流式?</th><th>协议</th><th>优先级</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="name">BailianProvider <span class="badge streaming">streaming</span></td><td>CosyVoice (WS) · qwen3-tts-flash (REST)</td><td>CosyVoice: ~200ms TTFB</td><td>WSS / HTTPS</td><td class="arrow">1st</td></tr>
+          <tr><td class="name">EdgeProvider <span class="badge streaming">streaming</span></td><td>edge-tts (Microsoft)</td><td>MP3 边下边播</td><td>HTTPS chunks</td><td class="arrow">2nd</td></tr>
+          <tr><td class="name">OpenAITTSProvider <span class="badge no-stream">one-shot</span></td><td>OpenAI tts-1</td><td>整段 HTTP</td><td>HTTPS MP3</td><td class="arrow">3rd</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 实际在跑 vs 候选 fallback -->
+    <h3 style="font-size:16px; margin: 36px 0 12px; color:var(--text);">实际在跑 <em>vs</em> 候选 fallback</h3>
+    <p style="color:var(--text-2); font-size:14px; margin: 0 0 12px;">上一张表是<em>能力</em>，这张表是<em>现状</em>——当下一个真实来电时，哪些模型会真的被叫到。要测 fallback：把 <code>DASHSCOPE_API_KEY</code> 临时从 <code>.env</code> 注释掉，<code>has_bailian</code> 立刻变 False，链路自动下移到下一档。</p>
+
+    <div class="card" style="padding:0; overflow:hidden;">
+      <table class="reg-table">
+        <thead>
+          <tr><th style="width: 90px;">层</th><th style="width: 130px;">🟢 当前在用</th><th style="width: 130px;">🟡 候选 1st</th><th style="width: 130px;">🟡 候选 2nd</th><th>触发 fallback 的条件</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>STT</strong></td>
+            <td><code style="color:var(--primary);">Bailian Paraformer</code><br><small>paraformer-realtime-v1 · WS 流式</small></td>
+            <td><code>Deepgram nova-2</code><br><small>~250ms interim latency</small></td>
+            <td><code>OpenAI whisper-1</code><br><small>batch 上传</small></td>
+            <td>注释掉 <code>DASHSCOPE_API_KEY</code> → Deepgram；再注释 <code>DEEPGRAM_API_KEY</code> → Whisper</td>
+          </tr>
+          <tr>
+            <td><strong>LLM</strong></td>
+            <td><code style="color:var(--primary);">Qwen3.6-flash</code><br><small>百炼 / DashScope 兼容模式</small></td>
+            <td colspan="2"><em>没有 fallback（隐式切换）</em></td>
+            <td><code>config.py:132</code> 检测到 <code>DASHSCOPE_API_KEY</code> 存在 → <strong>强制</strong>覆盖为 <code>qwen3.6-flash</code>，即便 .env 写 gpt-4o-mini 也会被改写。手动改 <code>llm_model</code> 字段可切回 OpenAI</td>
+          </tr>
+          <tr>
+            <td><strong>TTS</strong></td>
+            <td><code style="color:var(--primary);">qwen3-tts-flash / Cherry</code><br><small>百炼 REST one-shot</small></td>
+            <td><code>Edge zh-CN-XiaoxiaoNeural</code><br><small>微软 · 免费 · 免 key</small></td>
+            <td><code>OpenAI tts-1 / nova</code><br><small>MP3 → ffmpeg → PCM</small></td>
+            <td>注释 <code>DASHSCOPE_API_KEY</code> → Edge（<em>已经配了</em>，但当前没用上，因为百炼优先级最高）。Edge 也没了才到 OpenAI</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="tip warn" style="margin-top:14px;">
+      <span class="ic">⚠️</span>
+      <div><strong>LLM 层没有真正的 fallback</strong>——<code>config.py:132-134</code> 是"硬覆盖"逻辑，不是"如果百炼挂了再切 OpenAI"。要真做 fallback，得改成 try/except 包裹 LLM call，捕获到网络/限流错才切 base_url。答辩时问"百炼挂了你怎么办"——这是<strong>诚实的回答：现在直接挂</strong>，而不是假装有 fallback。</div>
+    </div>
+
+    <div class="tip info" style="margin-top:10px;">
+      <span class="ic">💡</span>
+      <div><strong>选型理由：</strong>百炼全家桶是"国内合规 + 中文一流 + 一套 key 走 LLM/STT/TTS 三个服务"的最短路径。Qwen3.6-<em>flash</em> 专门为低延迟优化（比 plus 快 30-40%），实时语音要 25s 内完成 turn，这个级别比质量更要命。Paraformer 选 v1 是阿里实际接受的 model name（注释里曾误写 v2，已修正）。</div>
+    </div>
+  </section>
+
+  <!-- ====================== §5 Tools registry ====================== -->
+  <section>
+    <div class="sec-num">§ 5</div>
+    <h2><svg class="luc" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>Tools Registry · <code>app/tools/__init__.py</code></h2>
+    <p class="sec-lede">LLM 能调的工具，每个有 schema + handler。加新 tool：写个 <code>Tool(name, description, parameters, handler)</code>，加进 <code>TOOLS_REGISTRY</code>。</p>
+
+    <div class="card">
+      <div class="tool-row">
+        <div>
+          <div class="tool-name">update_visitor_info</div>
+          <div class="tool-desc">增量更新 visitor 槽位。听到<strong>任一字段</strong>就调，不必等结束。</div>
+        </div>
+        <div>
+          <details class="tool-params">
+            <summary>参数 (6 个 optional)</summary>
+            <ul>
+              <li><code>plate</code> · 车牌号，会过 <code>normalize_plate</code></li>
+              <li><code>company</code> · 受访公司</li>
+              <li><code>reason</code> · 来访事由</li>
+              <li><code>contact_name</code> · 访客姓名（可选）</li>
+              <li><code>phone</code> · 手机号（digits only）</li>
+              <li><code>duration</code> · 预计停留</li>
+            </ul>
+          </details>
+        </div>
+      </div>
+      <div class="tool-row">
+        <div>
+          <div class="tool-name">send_to_guard_and_end_call</div>
+          <div class="tool-desc"><strong>唯一</strong>结束通话的方式。设 <code>is_final=True</code>，发微信卡片，挂电话。</div>
+        </div>
+        <div>
+          <details class="tool-params">
+            <summary>参数 (1 个 required)</summary>
+            <ul>
+              <li><code>summary</code> · 给用户念的最后一句总结</li>
+            </ul>
+          </details>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================== §6 Function Calling 深入 ====================== -->
+  <section>
+    <div class="sec-num">§ 6 · 深入</div>
+    <h2><svg class="luc" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/><path d="m9 12 2 2 4-4"/></svg>Function Calling · Schema 设计 & 一次完整 call</h2>
+    <p class="sec-lede">把 <code>app/tools/__init__.py</code> 的 schema 怎么写、registry 怎么 dispatch、LLM 返回后每步发生什么，拆到一行行讲清楚。</p>
+
+    <!-- === 6.1 Schema 字段解剖 === -->
+    <h3 style="font-size:17px; margin: 32px 0 14px; color: var(--text);">6.1 一个 Tool 的 schema 长啥样</h3>
+
+    <p style="color:var(--text-2); font-size:14px; margin: 0 0 12px;">OpenAI Function Calling 的 schema 就是 <strong>JSON Schema</strong> 子集，包成两层 <code>{type:"function", function:{...}}</code>。5 个字段逐个说：</p>
+
+    <div class="schema-grid">
+      <div class="lbl"><strong>type</strong>固定的 wrapper</div>
+      <div class="code-val" colspan="2"><span class="k">"type":</span> <span class="s">"function"</span> &nbsp;&nbsp;<span style="color:var(--muted)">// OpenAI 协议规定，永远是 "function"</span></div>
+
+      <div class="lbl"><strong>function.name</strong>调用的方法名</div>
+      <div class="code-val" colspan="2"><span class="k">"name":</span> <span class="s">"update_visitor_info"</span> &nbsp;&nbsp;<span style="color:var(--muted)">// 模型用这个名调你，必须匹配 handler 注册名</span></div>
+
+      <div class="lbl"><strong>function.description</strong>最关键 — LLM 决定何时调</div>
+      <div class="code-val" colspan="2"><span class="k">"description":</span> <span class="s">"Incremental update of visitor info slots. Call this as soon as you hear ANY field. Do not wait until the end. You may call multiple times per turn."</span> &nbsp;&nbsp;<span style="color:var(--muted)">// 大模型靠这段判断什么时候调</span></div>
+
+      <div class="lbl"><strong>function.parameters</strong>JSON Schema 对象</div>
+      <div class="code-val" colspan="2"><span class="k">"parameters":</span> { <span class="k">"type":</span> <span class="s">"object"</span>, <span class="k">"properties":</span> {...}, <span class="k">"required":</span> [...] }</div>
+
+      <div class="lbl"><strong>handler</strong>业务逻辑（不在 schema 里）</div>
+      <div class="code-val" colspan="2"><span class="k">handler:</span> _handle_update_visitor_info &nbsp;&nbsp;<span style="color:var(--muted)">// 收到 LLM 的 args 后干啥</span></div>
+    </div>
+
+    <div class="tip info">
+      <span class="ic">💡</span>
+      <div><strong>注意：</strong>前 4 个字段是给 <em>LLM 看的</em>（决定它会不会调、调什么参数），最后那个 <code>handler</code> 是给 <em>你的 Python 看的</em>（决定收到调用后干啥）。这是 OpenAI 的设计：<strong>声明</strong>和<strong>实现</strong>是分离的。</div>
+    </div>
+
+    <!-- === 6.2 description 的好与坏 === -->
+    <h3 style="font-size:17px; margin: 40px 0 14px; color: var(--text);">6.2 description 怎么写才不翻车</h3>
+    <p style="color:var(--text-2); font-size:14px; margin: 0 0 14px;">LLM 完全靠 <code>description</code> 决定<strong>何时调、调哪个</strong>。对比一下：</p>
+
+    <div class="desc-compare">
+      <div class="bad">
+        <h4>❌ 烂的 description</h4>
+        <p>"Update visitor info."</p>
+        <p style="margin-top:8px; color:var(--warn); font-size:12.5px;">→ LLM 不知道什么时候该调、什么时候不该调，可能每次都调、或者永远不调。</p>
+      </div>
+      <div class="good">
+        <h4>✅ 好的 description（项目真实写法）</h4>
+        <p>"Incremental update of visitor info slots. <strong>Call this as soon as you hear ANY field.</strong> Do not wait until the end. You may call multiple times per turn."</p>
+        <p style="margin-top:8px; color:var(--primary); font-size:12.5px;">→ 告诉 LLM：触发时机（听到任一字段就调）、调用频次（一轮可多次）、反模式（不要等到最后）。</p>
+      </div>
+    </div>
+
+    <div class="tip warn" style="margin-top:14px;">
+      <span class="ic">⚠️</span>
+      <div><strong>经验法则：</strong><code>description</code> 里出现 <em>"CRITICAL"</em> / <em>"EXACTLY ONCE"</em> / <em>"the ONLY way"</em> 这种<strong>大写强制词</strong>时，模型严格遵守率显著更高——见本项目 <code>send_to_guard_and_end_call</code> 的写法。</div>
+    </div>
+
+    <!-- === 6.3 实操：编辑一个 schema 看输出 === -->
+    <h3 style="font-size:17px; margin: 40px 0 14px; color: var(--text);">6.3 现场改 schema，看它长啥样</h3>
+    <p style="color:var(--text-2); font-size:14px; margin: 0 0 12px;">左边改 Python，右边实时看渲染后的 JSON。试着改 <code>description</code> 里的措辞，看 LLM 拿到的是什么。</p>
+
+    <div class="schema-live">
+      <div class="schema-tabs">
+        <button class="schema-tab active" data-tab="tool">tool definition</button>
+        <button class="schema-tab" data-tab="args">args LLM 传回来</button>
+        <button class="schema-tab" data-tab="result">result 你回给 LLM</button>
+      </div>
+      <div class="schema-editor">
+        <textarea id="schema-edit" spellcheck="false">TOOL_UPDATE_VISITOR = {
+    "type": "function",
+    "function": {
+        "name": "update_visitor_info",
+        "description": (
+            "Incremental update of visitor info slots. "
+            "Call this as soon as you hear ANY field. "
+            "Do not wait until the end. You may call "
+            "multiple times per turn."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "plate": {
+                    "type": "string",
+                    "description": "车牌号，例：'沪A12345'。Normalise: uppercase, no spaces.",
+                },
+                "reason": {
+                    "type": "string",
+                    "description": "来访事由，例：'送货'、'面试'、'拜访张总'",
+                },
+                "phone": {
+                    "type": "string",
+                    "description": "手机号或固定电话，digits only",
+                },
+            },
+        },
+    },
+}</textarea>
+        <pre class="schema-preview" id="schema-preview"></pre>
+      </div>
+    </div>
+
+    <!-- === 6.4 dispatch 流程 === -->
+    <h3 style="font-size:17px; margin: 40px 0 14px; color: var(--text);">6.4 step() 收到 tool_call 后每步发生什么</h3>
+    <p style="color:var(--text-2); font-size:14px; margin: 0 0 16px;">从 LLM 返回到 <code>AgentReply</code> 生成，6 个步骤串成一条线：</p>
+
+    <ol class="numbered-steps">
+      <li>
+        <strong>LLM 返回 <code>msg.tool_calls</code> 列表</strong>
+        <p>每个 <code>tc</code> 有 <code>id</code>、<code>function.name</code>、<code>function.arguments</code>（<em>JSON 字符串</em>，要 parse）。</p>
+      </li>
+      <li>
+        <strong>把 <code>assistant</code> 消息写进 <code>self.messages</code></strong>
+        <p>带 <code>tool_calls</code> 字段。这是 OpenAI 协议规定的——assistant 说了什么，history 必须原样记。</p>
+      </li>
+      <li>
+        <strong>遍历每个 <code>tc</code>，从 <code>TOOLS_REGISTRY</code> 查 handler</strong>
+        <p><code>tool = TOOLS_REGISTRY.get(tc.function.name)</code>。查不到就 warn + 返回错误 result（不让 LLM 卡死）。</p>
+      </li>
+      <li>
+        <strong>调 <code>await tool.handler(args, ctx)</code></strong>
+        <p>handler 拿到 <code>args: dict</code> 和 <code>ctx: ToolContext</code>（含 <code>visitor</code>、<code>is_final</code>、<code>summary</code>），返回 <code>result: dict</code>。</p>
+      </li>
+      <li>
+        <strong>把 <code>result</code> 写进 <code>self.messages</code>，<code>role: "tool"</code></strong>
+        <p>必须带 <code>tool_call_id</code> 关联到 step 2 的 assistant tool_call。下一轮 LLM 就能看到自己调的工具返回了什么。</p>
+      </li>
+      <li>
+        <strong>读 <code>ctx.is_final</code> 和 <code>ctx.summary</code>，返回 <code>AgentReply</code></strong>
+        <p>handler 改 ctx，agent 读 ctx——这个解耦是 tools 包重构的核心收益。</p>
+      </li>
+    </ol>
+
+    <div class="tip info">
+      <span class="ic">🔁</span>
+      <div>第 2 步和第 5 步是 <strong>OpenAI 协议的硬要求</strong>：每条 <code>tool</code> 消息必须紧跟对应的 <code>assistant</code> 消息，且带正确的 <code>tool_call_id</code>。漏写第 5 步的话，下一轮 LLM 直接报 <code>400 messages must contain tool_calls</code>。</div>
+    </div>
+
+    <!-- === 6.5 加新 tool 演示 === -->
+    <h3 style="font-size:17px; margin: 40px 0 14px; color: var(--text);">6.5 加一个新 tool 完整过程</h3>
+    <p style="color:var(--text-2); font-size:14px; margin: 0 0 14px;">假设业务要加：<em>访客报车牌后，agent 能查历史来访记录</em>。点开看 4 步怎么写：</p>
+
+    <div class="reveal" data-reveal>
+      <div class="reveal-h">
+        <span class="num">1</span>
+        <span class="ttl">写 schema · <code>app/tools/__init__.py</code></span>
+        <span class="arr">›</span>
+      </div>
+      <div class="reveal-b">
+        <p class="note">在 <code>TOOLS_REGISTRY</code> 字典里加一项。description 写好触发时机（关键）。</p>
+<pre>TOOLS_REGISTRY["lookup_plate_history"] = Tool(
+    name="lookup_plate_history",
+    description=(
+        "Look up the historical visit records for a given license plate. "
+        "Call this when the user provides a plate AND you want to check "
+        "if they are a returning visitor. Do NOT call without a plate."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "plate": {
+                "type": "string",
+                "description": "车牌号，例：'沪A12345'",
+            },
+        },
+        "required": ["plate"],
+    },
+    handler=_handle_lookup_plate_history,
+)</pre>
+      </div>
+    </div>
+
+    <div class="reveal" data-reveal>
+      <div class="reveal-h">
+        <span class="num">2</span>
+        <span class="ttl">写 handler · 同样在 <code>app/tools/__init__.py</code></span>
+        <span class="arr">›</span>
+      </div>
+      <div class="reveal-b">
+        <p class="note">async 函数，签名 <code>(args: dict, ctx: ToolContext) -> dict</code>。改 <code>ctx.visitor</code> + 返回 result。本项目已有 <code>app/sql.py:133 plate_history()</code> 可以直接用。</p>
+<pre>async def _handle_lookup_plate_history(
+    args: dict[str, Any], ctx: ToolContext,
+) -> dict[str, Any]:
+    plate = args.get("plate", "").strip()
+    if not plate:
+        return {"ok": False, "error": "plate required"}
+
+    # 1) 走项目已有的 SQL 查历史
+    from app import sql as sql_module
+    history = await sql_module.plate_history(plate, days=365)
+
+    # 2) 命中 → 标回访 + 把历史装进 ctx.visitor，
+    #    让 is_complete() 自动走"只缺车牌"捷径
+    if history:
+        ctx.visitor.is_returning = True
+        ctx.visitor.call_history = [
+            VisitorInfo.model_validate(h) for h in history
+        ]
+
+    # 3) 返回给 LLM（最多 5 条避免 context 爆炸）
+    return {
+        "ok": True,
+        "is_returning": bool(history),
+        "count": len(history),
+        "recent": [
+            f"{v['started_at']:%Y-%m-%d} · {v['reason']} · {v['company']}"
+            for v in history[:5]
+        ],
+    }</pre>
+      </div>
+    </div>
+
+    <div class="reveal" data-reveal>
+      <div class="reveal-h">
+        <span class="num">3</span>
+        <span class="ttl">agent.py 完全不用动 ✨</span>
+        <span class="arr">›</span>
+      </div>
+      <div class="reveal-b">
+        <p class="note">这就是 tools 包重构的收益——dispatch 是泛型 <code>TOOLS_REGISTRY.get(name)</code>，新 tool 自动接入。</p>
+<pre>async def step(self) -> AgentReply:
+    response = await self.client.chat.completions.create(
+        ..., tools=tools_schema(), ...  # ← 自动包含新 tool
+    )
+    for tc in response.choices[0].message.tool_calls:
+        tool = TOOLS_REGISTRY.get(tc.function.name)  # ← 自动查得到
+        result = await tool.handler(args, ctx)
+        ...
+</pre>
+        <p class="note">要 <strong>重启服务</strong>（或等 uvicorn --reload），然后 <code>codegraph query lookup_plate_history</code> 应该能看到新符号。</p>
+      </div>
+    </div>
+
+    <div class="reveal" data-reveal>
+      <div class="reveal-h">
+        <span class="num">4</span>
+        <span class="ttl">更新 system prompt（可选但推荐）</span>
+        <span class="arr">›</span>
+      </div>
+      <div class="reveal-b">
+        <p class="note">在 <code>app/prompts.py:build_system_prompt()</code> 里加一句"你有 lookup_plate_history 这个工具"，模型才会真的去用它。</p>
+<pre>def build_system_prompt(company, returning_history=""):
+    return f"""
+你是 {company} 的门卫电话助手。
+...
+你可以调 lookup_plate_history(plate) 查历史来访。
+如果有记录，记得用 ♻️ 回访的简短话术打招呼。
+"""
+</pre>
+      </div>
+    </div>
+
+    <!-- === 6.6 常见坑 === -->
+    <h3 style="font-size:17px; margin: 40px 0 14px; color: var(--text);">6.6 常见坑 · 提前避雷</h3>
+
+    <div class="tip warn">
+      <span class="ic">🚫</span>
+      <div><strong>坑 1：description 太短。</strong>LLM 看到 "<code>Update visitor info</code>" 完全不知道何时调——结果是它要么永不调、要么每次都调。加触发时机、调用频次、反模式三件套。</div>
+    </div>
+
+    <div class="tip warn">
+      <span class="ic">🚫</span>
+      <div><strong>坑 2：忘了写 <code>required</code> 字段。</strong>LLM 传 <code>{}</code> 空对象也能"调通"——你的 handler 必须自己处理 <code>args.get("xxx") is None</code> 的情况。本项目 <code>update_visitor_info</code> 的所有字段都是 optional，handler 用 <code>if v: setattr(...)</code> 跳过 None；如果是 required，handler 必须返回 <code>{"ok": False, "error": "missing plate"}</code>。</div>
+    </div>
+
+    <div class="tip warn">
+      <span class="ic">🚫</span>
+      <div><strong>坑 3：handler 抛异常没接住。</strong>如果 handler 内 <code>await something()</code> 抛错，<code>agent.step()</code> 整个 step 都会挂。解法：handler 内 try/except + 返回 <code>{"ok": False, "error": str(e)}</code>，让 LLM 看到错误后重试或换策略。</div>
+    </div>
+
+    <div class="tip warn">
+      <span class="ic">🚫</span>
+      <div><strong>坑 4：忘了写 <code>role: "tool"</code> 消息。</strong>每条 <code>assistant.tool_calls</code> 都必须有对应的 <code>tool</code> 消息回复，否则下一轮 LLM 报协议错。重构后的 <code>step()</code> 末尾已经统一 append 了，但写新 tool 时别忘了 <code>ctx</code> 是要返回 result 的。</div>
+    </div>
+
+    <div class="tip warn">
+      <span class="ic">🚫</span>
+      <div><strong>坑 5：<code>max_completion_tokens</code> 太小。</strong>本项目设的 200——够 LLM 说一句中文 + 调 1-2 个 tool。如果有 tool 的 description 巨长或 properties 巨多，模型可能没空间生成 <code>tool_calls</code> JSON。调到 300-500 看看。</div>
+    </div>
+  </section>
+
+  <!-- ====================== §7 Refactor diff ====================== -->
+  <section>
+    <div class="sec-num">§ 7</div>
+    <h2><svg class="luc" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>重构前后</h2>
+    <p class="sec-lede">上一轮做的两件事——拆 tools 包 + TTS provider registry。代码可读性、扩展性的差别肉眼可见。</p>
+
+    <h3 style="font-size:15px; margin: 24px 0 12px; color:var(--primary);">A · Tools 从 agent.py 拆出去</h3>
+    <div class="diff">
+      <div class="diff-pane before">
+        <h4>❌ Before · agent.py 顶部 65 行</h4>
+        <div class="line del">TOOL_UPDATE_VISITOR = { "type": "function", ... }</div>
+        <div class="line del">TOOL_SEND_AND_END = { "type": "function", ... }</div>
+        <div class="line del">TOOLS_SCHEMA = [TOOL_UPDATE_VISITOR, TOOL_SEND_AND_END]</div>
+        <div class="line ctx"># 在 step() 里硬编码 if/elif 路由</div>
+        <div class="line del">if tc.function.name == "update_visitor_info":</div>
+        <div class="line del">    self._apply_update(args)</div>
+        <div class="line del">elif tc.function.name == "send_to_guard_and_end_call":</div>
+        <div class="line del">    is_final = True</div>
+        <div class="line ctx"># 加新 tool 要改 agent.py 3 处</div>
+      </div>
+      <div class="diff-pane after">
+        <h4>✅ After · app/tools/__init__.py</h4>
+        <div class="line add">TOOLS_REGISTRY = {</div>
+        <div class="line add">    "update_visitor_info": Tool(name=..., handler=_handle_update_visitor_info),</div>
+        <div class="line add">    "send_to_guard_and_end_call": Tool(name=..., handler=_handle_send_and_end),</div>
+        <div class="line add">}</div>
+        <div class="line ctx"># 在 step() 里通用 dispatch</div>
+        <div class="line add">tool = TOOLS_REGISTRY.get(tc.function.name)</div>
+        <div class="line add">result = await tool.handler(args, ctx)</div>
+        <div class="line ctx"># 加新 tool 只改 1 处：registry 加一行</div>
+      </div>
+    </div>
+
+    <h3 style="font-size:15px; margin: 32px 0 12px; color:var(--primary);">B · TTS 3 个 synthesize 共用一份 if/elif</h3>
+    <div class="diff">
+      <div class="diff-pane before">
+        <h4>❌ Before · tts.py 三个公开函数各重复</h4>
+        <div class="line del">async def synthesize_to_mulaw8k(text):</div>
+        <div class="line ctx">    if has_bailian:</div>
+        <div class="line del">        if cosyvoice: ...</div>
+        <div class="line del">    elif edge_tts_voice: ...</div>
+        <div class="line del">    elif has_openai: ...</div>
+        <div class="line ctx">    # ↑ 这段 if/elif 链重复 3 次</div>
+        <div class="line del">async def synthesize_to_pcm16k(text):</div>
+        <div class="line del">async def synthesize_streaming_mulaw8k(text):</div>
+        <div class="line ctx"># 加 provider = 改 3 处</div>
+      </div>
+      <div class="diff-pane after">
+        <h4>✅ After · tts.py Provider classes</h4>
+        <div class="line add">class BailianProvider: ...</div>
+        <div class="line add">class EdgeProvider: ...</div>
+        <div class="line add">class OpenAITTSProvider: ...</div>
+        <div class="line add">PROVIDERS = [BailianProvider(), EdgeProvider(), OpenAITTSProvider()]</div>
+        <div class="line ctx">def synthesize_to_mulaw8k(text):</div>
+        <div class="line add">    pcm = await pick_provider().synth_pcm24k(text)</div>
+        <div class="line add">    return _pcm24k_to_mulaw8k(pcm)</div>
+        <div class="line ctx"># 加 provider = append 1 行，3 个 API 自动生效</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================== §8 RAG 架构设计（建议而非现状） ====================== -->
+  <section>
+    <div class="sec-num">§ 8 · 设计延伸</div>
+    <h2><svg class="luc" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>RAG 层：把"门卫操作手册"喂给 Agent</h2>
+    <p class="sec-lede"><strong>诚实标注：</strong>当前代码 <em>没有</em> RAG 层——回访判断靠 <code>twilio_handler.py:258 _maybe_lookup_returning</code> 用 SQL 查历史（精确匹配）。这一节是<strong>设计延伸</strong>，写给答辩时讨论"如果数据源是文档/SOP 怎么办"。</p>
+
+    <div class="tip warn">
+      <span class="ic">📌</span>
+      <div><strong>区分清楚：</strong>本项目现在有 <em>"结构化 RAG 雏形"</em>（SQL 查回访 = 精确检索），<em>没有</em>"非结构化 RAG"（向量库查文档/SOP）。下面写的是把后一种加上会怎么设计。</div>
+    </div>
+
+    <h3 style="font-size:16px; margin: 28px 0 12px; color:var(--text);">8.1 什么时候真的需要 RAG</h3>
+    <p style="color:var(--text-2); font-size:14px; margin: 0 0 12px;">先问自己三个问题，避免过度设计：</p>
+    <ol style="color:var(--text-2); font-size:14px; line-height:1.7; padding-left: 24px;">
+      <li><strong>门卫的判断要靠"规则文档"吗？</strong>比如"红名单车辆不放行"——这种<strong>确定的规则</strong>放 system prompt + few-shot 就够了，<em>不</em>需要 RAG。</li>
+      <li><strong>需要查"半结构化历史"吗？</strong>比如"这个车牌过去 6 个月来过几次、什么原因"——SQL <code>plate_history()</code> 已经能搞，<em>不</em>需要 RAG。</li>
+      <li><strong>需要查"非结构化文档"吗？</strong>比如"园区的停车规则 PDF / 临时管控通知 / 接待礼仪 SOP"——这种<strong>才</strong>是 RAG 的用武之地。</li>
+    </ol>
+
+    <h3 style="font-size:16px; margin: 32px 0 12px; color:var(--text);">8.2 如果要加，架构怎么嵌</h3>
+
+    <!-- RAG 架构 SVG -->
+    <div class="arch-svg" style="margin-top:12px;">
+      <svg viewBox="0 0 1000 280" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#7c7a72"/></marker>
+        </defs>
+
+        <!-- 文档源 -->
+        <g><rect x="20" y="100" width="130" height="80" rx="10" fill="#fff" stroke="#c97b3f" stroke-width="1.5"/>
+          <text class="arch-label" x="85" y="128" text-anchor="middle">📄 文档源</text>
+          <text class="arch-sub" x="85" y="148" text-anchor="middle">SOP / 通知 PDF</text>
+          <text class="arch-sub" x="85" y="165" text-anchor="middle">Markdown 规则</text>
+        </g>
+
+        <!-- 离线：embed + 索引 -->
+        <g><rect x="200" y="40" width="160" height="60" rx="10" fill="#fff" stroke="#c97b3f" stroke-width="1.5"/>
+          <text class="arch-label" x="280" y="65" text-anchor="middle">🔨 Embed + Index</text>
+          <text class="arch-sub" x="280" y="82" text-anchor="middle">bge-small / text-embedding-3</text>
+        </g>
+        <g><rect x="200" y="180" width="160" height="60" rx="10" fill="#fff" stroke="#c97b3f" stroke-width="1.5"/>
+          <text class="arch-label" x="280" y="205" text-anchor="middle">Chunk + Metadata</text>
+          <text class="arch-sub" x="280" y="222" text-anchor="middle">500 tokens / 100 overlap</text>
+        </g>
+
+        <!-- 向量库 -->
+        <g><rect x="410" y="100" width="130" height="80" rx="10" fill="#fff" stroke="#2f6f5e" stroke-width="2"/>
+          <text class="arch-label" x="475" y="128" text-anchor="middle">🗄️ Vector DB</text>
+          <text class="arch-sub" x="475" y="148" text-anchor="middle">Chroma / Milvus</text>
+          <text class="arch-sub" x="475" y="165" text-anchor="middle">本地 .chroma/ 目录</text>
+        </g>
+
+        <!-- 检索服务 -->
+        <g><rect x="590" y="100" width="130" height="80" rx="10" fill="#fff" stroke="#2f6f5e" stroke-width="1.5"/>
+          <text class="arch-label" x="655" y="128" text-anchor="middle">🔍 Retriever</text>
+          <text class="arch-sub" x="655" y="148" text-anchor="middle">cosine top-5</text>
+          <text class="arch-sub" x="655" y="165" text-anchor="middle">+ metadata filter</text>
+        </g>
+
+        <!-- Tool integration -->
+        <g><rect x="770" y="40" width="180" height="60" rx="10" fill="#fff" stroke="#b06367" stroke-width="1.5"/>
+          <text class="arch-label" x="860" y="65" text-anchor="middle">🔧 New Tool: query_sop()</text>
+          <text class="arch-sub" x="860" y="82" text-anchor="middle">handler 调 retriever</text>
+        </g>
+
+        <g><rect x="770" y="180" width="180" height="60" rx="10" fill="#fff" stroke="#2f6f5e" stroke-width="1.5"/>
+          <text class="arch-label" x="860" y="205" text-anchor="middle">🧠 VisitorLLMAgent</text>
+          <text class="arch-sub" x="860" y="222" text-anchor="middle">系统 prompt 注入检索结果</text>
+        </g>
+
+        <!-- arrows -->
+        <path class="arch-arrow" d="M 150 130 L 198 70" marker-end="url(#arr2)"/>
+        <path class="arch-arrow" d="M 150 150 L 198 210" marker-end="url(#arr2)"/>
+        <path class="arch-arrow" d="M 360 70 L 408 130" marker-end="url(#arr2)"/>
+        <path class="arch-arrow" d="M 360 210 L 408 150" marker-end="url(#arr2)"/>
+        <path class="arch-arrow" d="M 540 140 L 588 140" marker-end="url(#arr2)"/>
+        <path class="arch-arrow" d="M 720 120 L 768 75" marker-end="url(#arr2)"/>
+        <path class="arch-arrow" d="M 720 160 L 768 205" marker-end="url(#arr2)"/>
+        <text class="arch-arrow-label" x="270" y="30">离线</text>
+        <text class="arch-arrow-label" x="660" y="270">在线 · 每次 tool call</text>
+      </svg>
+    </div>
+
+    <h3 style="font-size:16px; margin: 32px 0 12px; color:var(--text);">8.3 实现骨架（5 个文件）</h3>
+
+    <div class="reveal" data-reveal>
+      <div class="reveal-h"><span class="num">1</span><span class="ttl"><code>app/rag/embeddings.py</code> · Embedding 客户端</span><span class="arr">›</span></div>
+      <div class="reveal-b">
+<pre>"""Embedding client. BGE-small-zh 是中文 SOTA，~93MB，本地推理 50ms/chunk。"""
+from sentence_transformers import SentenceTransformer
+from functools import lru_cache
+
+@lru_cache
+def _model():
+    return SentenceTransformer("BAAI/bge-small-zh-v1.5")
+
+async def embed(texts: list[str]) -> list[list[float]]:
+    return _model().encode(texts, normalize_embeddings=True).tolist()</pre>
+      </div>
+    </div>
+
+    <div class="reveal" data-reveal>
+      <div class="reveal-h"><span class="num">2</span><span class="ttl"><code>app/rag/index.py</code> · 离线建索引（脚本）</span><span class="arr">›</span></div>
+      <div class="reveal-b">
+<pre>"""把 docs/ 下的 SOP PDF/Markdown 切成 chunks → embed → 写 Chroma。
+冷启动时跑一次，之后增量更新即可。"""
+import chromadb
+from app.rag.embeddings import embed
+
+def build_index(docs_dir: str = "docs/sop"):
+    client = chromadb.PersistentClient(path=".chroma/")
+    col = client.get_or_create_collection("sop", metadata={"hnsw:space": "cosine"})
+
+    chunks = []
+    for path in Path(docs_dir).rglob("*.md"):
+        chunks += split_md(path, chunk_tokens=500, overlap=100)
+    # split_md 自己按段落/标题切，保持语义完整
+
+    embs = await embed([c["text"] for c in chunks])
+    col.add(
+        ids=[c["id"] for c in chunks],
+        embeddings=embs,
+        documents=[c["text"] for c in chunks],
+        metadatas=[c["meta"] for c in chunks],   # 包含 source_file / section
+    )</pre>
+      </div>
+    </div>
+
+    <div class="reveal" data-reveal>
+      <div class="reveal-h"><span class="num">3</span><span class="ttl"><code>app/rag/retrieve.py</code> · 在线检索</span><span class="arr">›</span></div>
+      <div class="reveal-b">
+<pre>"""Top-k cosine 检索，~30ms 含 embed。"""
+import chromadb
+from app.rag.embeddings import embed
+
+_col = chromadb.PersistentClient(path=".chroma/").get_collection("sop")
+
+async def query_sop(question: str, k: int = 5) -> list[dict]:
+    q_emb = (await embed([question]))[0]
+    res = _col.query(query_embeddings=[q_emb], n_results=k)
+    return [
+        {"text": doc, "source": meta["source_file"], "score": 1 - dist}
+        for doc, meta, dist in zip(
+            res["documents"][0], res["metadatas"][0], res["distances"][0]
+        )
+    ]</pre>
+      </div>
+    </div>
+
+    <div class="reveal" data-reveal>
+      <div class="reveal-h"><span class="num">4</span><span class="ttl"><code>app/tools/__init__.py</code> · 加 <code>query_sop</code> 工具</span><span class="arr">›</span></div>
+      <div class="reveal-b">
+<pre>TOOLS_REGISTRY["query_sop"] = Tool(
+    name="query_sop",
+    description=(
+        "Look up the park's standard operating procedure (SOP) relevant to the "
+        "current situation. Call this when the user asks about rules, special "
+        "handling, or when you are unsure how to respond to an unusual case."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "question": {"type": "string", "description": "你想问的问题"},
+        },
+        "required": ["question"],
+    },
+    handler=_handle_query_sop,
+)
+
+async def _handle_query_sop(args, ctx):
+    from app.rag.retrieve import query_sop
+    hits = await query_sop(args["question"], k=5)
+    return {
+        "ok": True,
+        "matches": [{"source": h["source"], "text": h["text"][:400]} for h in hits],
+    }</pre>
+      </div>
+    </div>
+
+    <div class="reveal" data-reveal>
+      <div class="reveal-h"><span class="num">5</span><span class="ttl">边界控制 · <code>app/rag/guard.py</code>（常被忽略的雷）</span><span class="arr">›</span></div>
+      <div class="reveal-b">
+        <p class="note">RAG 最常见的失败模式：<strong>检索到了不相关 chunk</strong>，LLM 把它当真。所以必须做：</p>
+<pre>async def _handle_query_sop(args, ctx):
+    from app.rag.retrieve import query_sop
+    hits = await query_sop(args["question"], k=5)
+
+    # ① 相似度阈值 — 太低就拒答
+    if not hits or hits[0]["score"] < 0.5:
+        return {"ok": True, "matches": [], "note": "no relevant SOP found"}
+
+    # ② 截断 — 防 prompt 爆炸
+    top3 = hits[:3]
+
+    # ③ 来源标注 — 让 LLM 知道"这是从哪条规则来的"
+    return {
+        "ok": True,
+        "matches": [
+            {"source": h["source"], "text": h["text"][:300], "score": h["score"]}
+            for h in top3
+        ],
+    }</pre>
+        <p class="note">同时在 system prompt 里加：<em>"query_sop 返回的内容仅作参考，最终判断需结合上下文；找不到就直说不知道。"</em></p>
+      </div>
+    </div>
+
+    <h3 style="font-size:16px; margin: 32px 0 12px; color:var(--text);">8.4 取舍 · 为什么本项目 <em>不</em> 上 RAG</h3>
+
+    <div class="card" style="padding:18px; background: var(--primary-soft); border: 1px solid var(--primary);">
+      <p style="margin: 0 0 8px; font-weight: 600; color: var(--primary);">答辩可能追问："那你怎么决定加不加？"</p>
+      <p style="margin: 0; color: var(--text-2); font-size: 14px; line-height: 1.6;">
+        现在的回答：<strong>访客信息是结构化字段</strong>（车牌/事由/电话）→ SQL 够用；<strong>门卫规则是确定规则</strong>（问完就几条，变化不频繁）→ 写进 system prompt + few-shot 够用；<strong>SOP 文档是非结构化且会更新</strong>（通知/PDF/Excel）→ 这种 <em>才</em> 是 RAG 的菜。
+        答辩时回答"现在不加 = 现在没这个需求，加也是 5 个文件"比"我做了个超复杂的 RAG"加分。
+      </p>
+    </div>
+  </section>
+
+  <!-- ====================== §9 答辩预演 Q&A ====================== -->
+  <section>
+    <div class="sec-num">§ 9 · 自检</div>
+    <h2><svg class="luc" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>答辩预演 · 最容易被问死的问题</h2>
+    <p class="sec-lede">从真实答辩可能追问的角度挑 8 个，每个都点开能看"参考答法"——你**不要照背**，要理解每条的"为什么"，对着自己的话术改。</p>
+
+    <div class="reveal" data-reveal>
+      <div class="reveal-h"><span class="num">Q1</span><span class="ttl">为什么用 OpenAI 兼容协议，而不是各家 SDK 原生接口？</span><span class="arr">›</span></div>
+      <div class="reveal-b">
+        <p class="note"><strong>考点：</strong>协议抽象能力 / vendor lock-in 意识。</p>
+<pre>参考答法：
+"OpenAI 兼容协议是事实标准——DashScope、Azure、vLLM、Ollama 都支持。
+我用 AsyncOpenAI(base_url=settings.llm_base_url) 一行切换后端。
+代价是吃不到各家最新 feature（比如 DashScope 的 qwen3 thinking
+模式得用 extra_body 透传，见 agent.py:191），但换来本地开发 / 生产 /
+海外三套环境无缝切换。"
+
+代码锚点：app/agent.py:99 step() 的 self.client.chat.completions.create</pre>
+      </div>
+    </div>
+
+    <div class="reveal" data-reveal>
+      <div class="reveal-h"><span class="num">Q2</span><span class="ttl">为什么 visitor_info 用 Pydantic 而不是 TypedDict / dataclass？</span><span class="arr">›</span></div>
+      <div class="reveal-b">
+        <p class="note"><strong>考点：</strong>边界校验 / 序列化 / 单一信息源意识。</p>
+<pre>参考答法：
+"三件事 Pydantic 一行解决：
+  1. 字段校验（plate 正则 / phone 国际化）— schemas.py:47/61
+  2. JSON 序列化给 LLM 当 tool_call 返回值 — 不用手写 dict
+  3. .model_dump() 直接给 WeChat 卡片 / SQLite 持久化
+另外 _apply_update() 末尾再 model_validate 一遍（防御性 re-validate），
+保证 ctx.visitor 永远过 schema 校验，state 不变量维护在数据层而不是
+业务代码里。"
+
+代码锚点：app/schemas.py:29 / app/agent.py _apply_update 末尾</pre>
+      </div>
+    </div>
+
+    <div class="reveal" data-reveal>
+      <div class="reveal-h"><span class="num">Q3</span><span class="ttl">Twilio 那边 23s 静音 timeout 怎么处理的？为什么不用 VAD？</span><span class="arr">›</span></div>
+      <div class="reveal-b">
+        <p class="note"><strong>考点：</strong>对真实系统限制（外部依赖、QPS、timeout）的应对。</p>
+<pre>参考答法：
+"Twilio 媒体流没原生 VAD，靠 STT 提供方（百炼/Deepgram）的服务端
+VAD。但百炼 23s 静默后才判定端点（默认行为）—— 用户说完一句话 +
+停顿 24s，agent 才会处理，体验极差。
+解法在 browser_session.py:276：客户端加服务端 VAD，18×80ms = 1.44s
+静音就 mark_utterance_end() 主动结束。代价是要选 1.44s 这个值——
+太短会把 '嗯' 后的停顿判成结束，太长又回到 23s 问题。
+我做了 3 档调参（6/13/18 帧）最后定 18，1.0s 最小语音保护防止单字误触。"
+
+代码锚点：app/services/browser_session.py:276 _on_pcm</pre>
+      </div>
+    </div>
+
+    <div class="reveal" data-reveal>
+      <div class="reveal-h"><span class="num">Q4</span><span class="ttl">CosyVoice 流式 TTFB ~200ms 是怎么做到的？其他 provider 为什么不行？</span><span class="arr">›</span></div>
+      <div class="reveal-b">
+        <p class="note"><strong>考点：</strong>对 streaming vs one-shot 架构差异的理解。</p>
+<pre>参考答法：
+"CosyVoice WebSocket 是 server-side streaming——run-task 之后服务端
+立即开始推 audio chunk，不用等服务端把整段音频生成完。这是协议级
+streaming，和 OpenAI 那种 'response_format=mp3 然后等整个文件' 是
+两回事。
+qwen3-tts-flash 走 REST one-shot，必须等生成完才能下载 WAV，
+所以 TTFB = 全段生成时间 + 网络下载。
+Edge TTS 是 chunked HTTP/2 stream（不是 WS），效果介于两者之间。
+我在 synthesize_streaming_mulaw8k 里做了优雅降级——如果 active
+provider 不支持 stream，就 fallback 到 synthesize_to_mulaw8k 一次性。"
+
+代码锚点：app/services/tts.py:236 synthesize_streaming_mulaw8k</pre>
+      </div>
+    </div>
+
+    <div class="reveal" data-reveal>
+      <div class="reveal-h"><span class="num">Q5</span><span class="ttl">system prompt 怎么设计的？怎么保证 LLM 一定调结束 tool？</span><span class="arr">›</span></div>
+      <div class="reveal-b">
+        <p class="note"><strong>考点：</strong>prompt engineering + 防御性兜底。</p>
+<pre>参考答法：
+"三层防御：
+  1. tool description 强制词——'CRITICAL: Call this EXACTLY ONCE'
+  2. system prompt 强调'调这个 tool 之前不要先说再见'
+  3. 代码层后置保险——_looks_like_goodbye() 检测 LLM 是不是提前告别，
+     是的话 + is_complete() 就自动结束（agent.py:280）
+
+实测 Qwen3.7-Max 90% 守规矩，剩 10% 会被 _looks_like_goodbye 兜住。
+不够完美但实战可接受——要 100% 得用 response format 强制 schema。"
+
+代码锚点：app/agent.py:280 / app/tools/__init__.py TOOL_SEND_AND_END</pre>
+      </div>
+    </div>
+
+    <div class="reveal" data-reveal>
+      <div class="reveal-h"><span class="num">Q6</span><span class="ttl">这个系统最多支持多少并发？怎么压测的？</span><span class="arr">›</span></div>
+      <div class="reveal-b">
+        <p class="note"><strong>考点：</strong>容量规划 / 你真的跑过没。</p>
+<pre>参考答法：
+"两个瓶颈：
+  1. LLM QPS（按 DashScope 免费档 60 RPM 算，并发 1 已经顶满，
+     付费档能上百）
+  2. CosyVoice WS semaphore 上限 3（tts.py:56）—— 这条是手动
+     调的，跑 stress_test.py 10 并发看到这个数字开始 429
+
+压测脚本在 scripts/stress.py + stress_browser.py。
+实测单实例 3 并发下，端到端 P95 延迟 2.1s（含 23s 静音最大）。
+要上生产得加 LLM API key 池 + 把 CosyVoice semaphore 调到
+对应账号的 QPS 上限。"
+
+代码锚点：app/services/tts.py:56 _COSYVOICE_SEMAPHORE / scripts/stress.py</pre>
+      </div>
+    </div>
+
+    <div class="reveal" data-reveal>
+      <div class="reveal-h"><span class="num">Q7</span><span class="ttl">如果 LLM 调用失败了怎么办？网络断了？用户挂电话了？</span><span class="arr">›</span></div>
+      <div class="reveal-b">
+        <p class="note"><strong>考点：</strong>异常路径 / 鲁棒性 / 状态恢复。</p>
+<pre>参考答法：
+"三层 try/except：
+  1. step() 顶层——网络挂了 catch 住，返回'系统忙请稍后再拨'并 is_final
+     （app/agent.py:197）—— 至少不卡住，Twilio 会按 is_final 挂断
+  2. handler 内部——tool handler 抛错要自己 try/except 返回 ok:False
+     （这是踩过的坑，见 § 6.6 坑 3）
+  3. transport 层——WebSocket disconnect 触发主循环 break（browser
+     session:172），_shutdown 取消 STT 任务、close transcriber
+
+状态本身不持久化（call-scoped，hangup 就丢）；访客记录落 SQLite，
+下次同号来电 _maybe_lookup_returning 重新预填 ctx.visitor.call_history。
+这意味着如果通话中途断，'填了一半的 visitor_info' 也丢了——
+tradeoff：简单 vs 状态机持久化，本项目选了简单。"
+
+代码锚点：app/agent.py:197 / app/services/browser_session.py:172</pre>
+      </div>
+    </div>
+
+    <div class="reveal" data-reveal>
+      <div class="reveal-h"><span class="num">Q8</span><span class="ttl">如果 Twilio 账号被封了 / API key 过期了，你这个系统怎么活下来？</span><span class="arr">›</span></div>
+      <div class="reveal-b">
+        <p class="note"><strong>考点：</strong>实际踩过坑的意识（你真经历过）/ 多通路备份。</p>
+<pre>参考答法（这是你真实的痛点）：
+"这个我真遇到过——take-home 做到一半 Twilio 美区号被封。
+我的应对：项目一开始就设计成 transport-agnostic——见 § 2，
+BrowserSession 和 TwilioCall 共享 VisitorLLMAgent，只是音频格式
+和传输层不同。
+当 Twilio 挂了，我能在 10 分钟内切到浏览器入口（带 LIVE 录音演示），
+WeChat 卡片照常发，LLM agent 逻辑一行不改。
+代价是浏览器路径没有真实电话号（需要用户主动点链接），
+生产化场景还得有 PSTN 兜底。"
+
+代码锚点：app/services/{browser_session,twilio_handler}.py 共享 VisitorLLMAgent</pre>
+      </div>
+    </div>
+
+    <div class="reveal" data-reveal>
+      <div class="reveal-h"><span class="num">Q9</span><span class="ttl">你怎么评估"agent 是不是在胡言乱语"？有什么质量门？</span><span class="arr">›</span></div>
+      <div class="reveal-b">
+        <p class="note"><strong>考点：</strong>幻觉问题 / 工程化质量门。</p>
+<pre>参考答法：
+"四道门：
+  1. 结构化输出——所有'事实'都来自 tool call 的 result，不让 LLM 自由发挥
+     事实（plate/reason/phone 必须经 update_visitor_info 工具才入 state）
+  2. 校验——_apply_update 末尾 model_validate 跑一次
+  3. 兜底——plate 强制过 normalize_plate()，错的车牌不写库
+  4. 离线——transcript() 落 SQLite，每次通话可审计、可回放
+     （已经在用：门卫群收到卡片后能查到原文对话）
+
+没做的是 LLM-as-judge 评分和回归测试套件——这是下一步。
+但对当前规模（每日 100 通以内），人工抽样 + 全量 transcript
+已经够用。"
+
+代码锚点：app/agent.py:_apply_update / app/agent.py:255 transcript()</pre>
+      </div>
+    </div>
+
+    <div class="reveal" data-reveal>
+      <div class="reveal-h"><span class="num">Q10</span><span class="ttl">为什么用 FastAPI 而不是 Flask / Django / 纯 ASGI？</span><span class="arr">›</span></div>
+      <div class="reveal-b">
+        <p class="note"><strong>考点：</strong>框架选型意识 / WebSocket + async 生态。</p>
+<pre>参考答法：
+"两个硬需求决定：
+  1. WebSocket——Twilio Media Streams 和浏览器测试页都走 WS，
+     Flask 没原生 WS 支持
+  2. async I/O——LLM/STT/TTS 全是 async 客户端（AsyncOpenAI /
+     websockets），Flask sync 模型下要绕 async-to-sync bridge
+
+Django Channels 能做但太重（ORM/admin 全套进来），FastAPI
+刚好——Pydantic 校验、async、自动 OpenAPI 文档（虽然有那个
+ForwardRef bug），生态上 OpenAI 官方 Python SDK 也有 FastAPI 集成示例。
+uploads / form / cookie 这些都不需要——纯 API + WS 场景。"
+
+代码锚点：app/main.py FastAPI app / @app.websocket 装饰器</pre>
+      </div>
+    </div>
+
+    <div class="tip info" style="margin-top:24px;">
+      <span class="ic">🎯</span>
+      <div><strong>答辩建议：</strong>上面 10 题你**至少能讲 7 题**就稳了。最容易被问死的是 Q3（VAD 调参）和 Q8（Twilio 封号）——前者你有具体数字、后者你有真实经历，<strong>你正好是这两个问题的最佳人设</strong>。Q1/Q5 准备一段 30 秒版本就够；Q6/Q9 准备"我没做"的标准答法（tradeoff 清晰就行）。</div>
+    </div>
+  </section>
+
+  <footer>
+    <p>Voice Agent · 蓝色鲸鱼科技园 · Architecture explorer · <span style="color:var(--primary)">codegraph 索引 617 节点 / 1461 边</span></p>
+    <p style="margin-top:8px; font-size:11.5px;">源码以 <code>app/</code> 为准，本页图示只是导游。</p>
+  </footer>
+</div>
+
+<!-- ====================== Code peek modal ====================== -->
+<div class="peek" id="peek">
+  <div class="peek-panel">
+    <div class="peek-head">
+      <span class="peek-path" id="peek-path"></span>
+      <button class="peek-close" onclick="closePeek()">✕</button>
+    </div>
+    <div class="peek-body" id="peek-body"></div>
+  </div>
+</div>
+
+<script>
+// ============== Code snippets (sanitized excerpts, line-numbered) ==============
+const SNIPPETS = {
+  browser: {
+    file: 'app/services/browser_session.py:125',
+    title: 'BrowserSession · 浏览器侧 WS 入口',
+    code: `class BrowserSession:
+    """A single browser test page voice session."""
+
+    def __init__(self, ws: WebSocket) -> None:
+        self.ws = ws
+        self._closed = False
+        self._stt_task: Optional[asyncio.Task] = None
+        self.transcriber: Optional[Transcriber] = None
+        self.agent: Optional[VisitorLLMAgent] = None
+        # VAD 状态
+        self._silent_frames = 0
+        self._speech_frames = 0
+        self.state.sample_rate = 16000   # 浏览器默认
+`
+  },
+  browser_run: {
+    file: 'app/services/browser_session.py:149',
+    title: 'BrowserSession.run() · 主循环',
+    code: `async def run(self) -> None:
+    await self.ws.accept()
+    logger.info("🌐 Browser session opened")
+    try:
+        # 1) 起 STT + LLM agent + 预合成问候
+        await self._init()
+        await self.ws.send_json({"type": "ready"})
+
+        # 2) 发问候语（预合成, ~30ms 延迟）
+        await self.ws.send_json({"type": "agent_audio_start"})
+        pcm = self._greeting_pcm or await _synth_pcm16k(self._greeting_text)
+        frame = int(OUT_PCM_RATE * 80 / 1000) * 2
+        for off in range(0, len(pcm), frame):
+            await self.ws.send_bytes(pcm[off:off + frame])
+        await self.ws.send_json({"type": "agent_audio_end"})
+
+        # 3) 主循环
+        while not self._closed:
+            msg = await self.ws.receive()
+            if msg.get("type") == "websocket.disconnect":
+                break
+            if "bytes" in msg:
+                await self._on_pcm(msg["bytes"])
+            elif "text" in msg:
+                await self._on_json(msg["text"])
+`
+  },
+  twilio: {
+    file: 'app/services/twilio_handler.py:48',
+    title: 'TwilioCall · PSTN 入口',
+    code: `class TwilioCall:
+    """A single Twilio Media Streams voice session."""
+
+    def __init__(self, ws: WebSocket) -> None:
+        self.ws = ws
+        self.call_sid: Optional[str] = None
+        self.transcriber: Optional[Transcriber] = None
+        self.agent: Optional[VisitorLLMAgent] = None
+        self._closed = False
+        self._silence_task: Optional[asyncio.Task] = None
+        self._last_user_text: str = ""
+
+    async def run(self) -> None:
+        await self.ws.accept()
+        logger.info("📞 Twilio call opened")
+        # ... 等待 start event
+`
+  },
+  twilio_run: {
+    file: 'app/services/twilio_handler.py:68',
+    title: 'TwilioCall.run() · Twilio event loop',
+    code: `async def run(self) -> None:
+    await self.ws.accept()
+    try:
+        # 1) 等 Twilio 推 start event
+        # 2) 启 STT + LLM agent
+        # 3) 进入 receive loop:
+        #    - "media" event → transcriber.send_audio(mulaw_bytes)
+        #    - "mark" event → 上一个 TTS chunk 播完了
+        #    - "stop" event → break
+        while not self._closed:
+            msg = await self.ws.receive_json()
+            await self._handle_event(msg)
+    finally:
+        await self._finalise_call(self.agent.visitor)
+`
+  },
+  stt: {
+    file: 'app/services/stt.py:527 · make_transcriber()',
+    title: 'STT Provider 工厂',
+    code: `def make_transcriber() -> Transcriber:
+    """Pick the best available transcriber. Bailian takes priority."""
+    settings = get_settings()
+    if settings.has_bailian:
+        return BailianParaformerTranscriber()
+    if settings.has_deepgram:
+        return DeepgramTranscriber()
+    if settings.has_openai:
+        return OpenAIWhisperTranscriber()
+    raise RuntimeError("No STT provider configured")
+
+# 每个 provider 实现同一个 Protocol:
+#   send_audio(bytes) / mark_utterance_end() / events() / close()
+`
+  },
+  agent: {
+    file: 'app/agent.py:56 · VisitorLLMAgent',
+    title: 'VisitorLLMAgent · LLM agent 主类',
+    code: `class VisitorLLMAgent:
+    """A stateful agent for a single phone call.
+    Keeps the OpenAI conversation list in memory for the duration
+    of the call. After hangup we drop it. We also persist a
+    transcript to SQLite for audit.
+    """
+
+    def __init__(self, *, call_sid, visitor_info, returning_history="",
+                 client: Optional[AsyncOpenAI] = None) -> None:
+        self.settings = get_settings()
+        self.client = client or AsyncOpenAI(
+            api_key=self.settings.openai_api_key or "missing",
+            base_url=self.settings.llm_base_url,
+        )
+        self.call_sid = call_sid
+        self.visitor = visitor_info
+        self.messages = [{"role": "system", "content": build_system_prompt(...)}]
+        self._turn_count = 0
+`
+  },
+  tools: {
+    file: 'app/tools/__init__.py:145 · TOOLS_REGISTRY',
+    title: 'Tools Registry · 抽出来的 tool 包',
+    code: `TOOLS_REGISTRY: dict[str, Tool] = {
+    "update_visitor_info": Tool(
+        name="update_visitor_info",
+        description="Incremental update of visitor info slots...",
+        parameters={
+            "type": "object",
+            "properties": {
+                "plate": {"type": "string", "description": "车牌号..."},
+                "company": {"type": "string", ...},
+                # ... 6 个字段
+            },
+        },
+        handler=_handle_update_visitor_info,   # ← handler 在另一个文件
+    ),
+    "send_to_guard_and_end_call": Tool(
+        name="send_to_guard_and_end_call",
+        description="CRITICAL: Call this EXACTLY ONCE when all slots are filled...",
+        parameters={"type": "object", "properties": {"summary": {"type": "string", ...}}},
+        handler=_handle_send_and_end,
+    ),
+}
+
+def tools_schema() -> list[dict]:
+    return [tool.schema for tool in TOOLS_REGISTRY.values()]
+`
+  },
+  tts: {
+    file: 'app/services/tts.py:192 · pick_provider()',
+    title: 'TTS Provider Registry',
+    code: `def pick_provider(settings=None) -> TTSProvider:
+    """Return the first provider whose available() is True."""
+    s = settings or get_settings()
+    for p in PROVIDERS:
+        if p.available(s):
+            return p
+    raise RuntimeError("No TTS provider configured (need DASHSCOPE_API_KEY, EDGE_TTS_VOICE, or OPENAI_API_KEY)")
+
+# PROVIDERS = [BailianProvider(), EdgeProvider(), OpenAITTSProvider()]
+# 加新 provider: append 一行即可，3 个公开 API 自动生效
+
+async def synthesize_to_mulaw8k(text: str) -> bytes:
+    if not text.strip(): return b""
+    pcm = await pick_provider().synth_pcm24k(text)
+    return _pcm24k_to_mulaw8k(pcm)
+`
+  },
+  llm: {
+    file: 'app/agent.py:99 · step()',
+    title: 'agent.step() · 一次 LLM call',
+    code: `async def step(self) -> AgentReply:
+    try:
+        kwargs = {
+            "model": self.settings.llm_model,
+            "messages": self.messages,
+            "tools": tools_schema(),   # ← 从 tools 包来
+            "tool_choice": "auto",
+            "temperature": 0.4,
+            "max_completion_tokens": 200,
+        }
+        if "qwen3" in self.settings.llm_model:
+            kwargs["extra_body"] = {"enable_thinking": False}
+        response = await self.client.chat.completions.create(**kwargs)
+    except Exception as e:
+        return AgentReply(text_to_speak="抱歉...", is_final=True, visitor_info=self.visitor)
+
+    # 解析 + 跑 tool handlers + 返回
+    ...
+`
+  },
+  schemas: {
+    file: 'app/schemas.py:29 · VisitorInfo',
+    title: 'VisitorInfo · Pydantic 数据模型',
+    code: `class VisitorInfo(BaseModel):
+    plate: Optional[str]           # 车牌
+    company: Optional[str]         # 受访公司
+    reason: Optional[str]          # 来访事由
+    contact_name: Optional[str]    # 访客姓名
+    phone: Optional[str]           # 电话
+    duration: Optional[str]        # 预计停留
+
+    # 元数据
+    call_sid: str = ""
+    started_at: Optional[datetime] = None
+    is_returning: bool = False
+    call_history: list["VisitorInfo"] = []
+
+    def missing_required(self) -> list[str]:
+        return [n for n, v in (("plate", self.plate),
+                               ("reason", self.reason),
+                               ("phone", self.phone)) if not v]
+
+    def is_complete(self, allow_returning_shortcut=True) -> bool:
+        if allow_returning_shortcut and self.is_returning and self.plate:
+            return True   # 回访有车牌就行
+        return not self.missing_required()
+`
+  },
+  wechat: {
+    file: 'app/services/wechat.py · send_visitor_card()',
+    title: 'to_wechat_card() · 发给门卫的 Markdown 卡片',
+    code: `def to_wechat_card(self) -> str:
+    returning_tag = "♻️ 回访" if self.is_returning else "🆕 新访"
+    lines = [
+        f"## 🚗 新访客登记 {returning_tag}",
+        "",
+        f"**车牌号**: {self.plate or '未提供'}",
+        f"**受访公司**: {self.company or '未提供'}",
+        f"**来访事由**: {self.reason or '未提供'}",
+        f"**访客姓名**: {self.contact_name or '-'}",
+        f"**联系电话**: {self.phone or '-'}",
+        f"**预计停留**: {self.duration or '-'}",
+    ]
+    if self.call_history:
+        lines += ["", "### 📋 历史来访", ...]
+    return "\\n".join(lines)
+`
+  },
+  step1: { file: 'app/main.py · 路由', title: 'WebSocket 路由', code: `# 浏览器
+@app.websocket("/ws/browser")
+async def browser_session_ws(ws: WebSocket):
+    await BrowserSession(ws).run()
+
+# Twilio
+@app.websocket("/ws/twilio")
+async def media_stream(ws: WebSocket):
+    await TwilioCall(ws).run()
+
+# 跑得通
+$ curl http://127.0.0.1:8765/browser-test
+# → 浏览器打开, 看到黑色 UI，点"开始录音"` },
+  step2: { file: 'app/services/stt.py:527', title: 'STT 工厂', code: `transcriber = stt.make_transcriber()
+await transcriber.__aenter__()   # 连 WebSocket
+
+# 后台 task drain STT 事件
+self._stt_task = asyncio.create_task(self._drain_stt())
+
+# 每段 final transcript:
+async for evt in transcriber.events():
+    if evt.is_final and evt.text.strip():
+        self.agent.push_user_utterance(evt.text)
+        reply = await self.agent.step()
+        await self._speak(reply.text_to_speak)
+        if reply.is_final:
+            self._closed = True
+            break` },
+  step3: { file: 'app/services/browser_session.py:276', title: 'VAD + 推 utterance', code: `async def _on_pcm(self, pcm: bytes) -> None:
+    if self.transcriber is None: return
+
+    pcm16k = self._ensure_pcm16k(pcm, self.state.sample_rate)
+
+    # 服务端 VAD
+    rms = audioop.rms(pcm16k, 2)
+    ENERGY_THRESHOLD = 1500
+    SILENCE_FRAMES = 18      # 1.44s
+    MIN_SPEECH_FRAMES = 13   # 1.0s
+
+    if rms < ENERGY_THRESHOLD:
+        self._silent_frames += 1
+    else:
+        self._silent_frames = 0
+        self._speech_frames += 1
+
+    if (self._silent_frames == SILENCE_FRAMES
+        and self._speech_frames >= MIN_SPEECH_FRAMES):
+        self.transcriber.mark_utterance_end()
+
+    self.transcriber.send_audio(pcm16k)` },
+  step4: { file: 'app/agent.py:99 + app/tools/__init__.py:145', title: 'step() + tool dispatch', code: `async def step(self) -> AgentReply:
+    response = await self.client.chat.completions.create(
+        model=settings.llm_model, messages=self.messages,
+        tools=tools_schema(), tool_choice="auto",
+    )
+    msg = response.choices[0].message
+    tool_calls = msg.tool_calls or []
+
+    ctx = ToolContext(visitor=self.visitor)
+    for tc in tool_calls:
+        args = json.loads(tc.function.arguments or "{}")
+        tool = TOOLS_REGISTRY.get(tc.function.name)
+        result = await tool.handler(args, ctx)
+        # ctx.is_final / ctx.summary 决定要不要挂电话
+        self.messages.append({"role": "tool", "content": json.dumps(result)})
+
+    return AgentReply(text_to_speak=msg.content, is_final=ctx.is_final, visitor_info=ctx.visitor)` },
+  step5: { file: 'app/services/tts.py:220', title: 'TTS synthesize', code: `pcm = await synthesize_to_pcm16k(text)         # 浏览器: 16kHz PCM
+# 或
+mulaw = await synthesize_to_mulaw8k(text)      # Twilio: μ-law 8k
+
+# 流式（CosyVoice / Edge）
+async for chunk in synthesize_streaming_mulaw8k(text):
+    await ws.send_bytes(chunk)  # Twilio: send_media_message
+` },
+  step6: { file: 'app/schemas.py:92 + app/services/wechat.py', title: '结束 + 微信卡片', code: `# LLM 调 send_to_guard_and_end_call
+async def _handle_send_and_end(args, ctx):
+    ctx.is_final = True
+    if args.get("summary"):
+        ctx.summary = args["summary"]
+    return {"ok": True, "will_end_call": True}
+
+# agent 看到 is_final=True → 调 wechat.send_visitor_card(visitor)
+# 渲染 Markdown → 推到门卫群 webhook
+# 然后 TwilioCall._finalise_call() / BrowserSession._shutdown()
+`
+  },
+};
+
+function openPeek(key) {
+  const s = SNIPPETS[key];
+  if (!s) return;
+  const peek = document.getElementById('peek');
+  document.getElementById('peek-path').textContent = s.file;
+  document.getElementById('peek-body').innerHTML =
+    `<p class="peek-note"><strong>${s.title}</strong></p>
+     <pre>${s.code.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>`;
+  peek.classList.add('open');
+}
+function closePeek() {
+  document.getElementById('peek').classList.remove('open');
+}
+document.getElementById('peek').addEventListener('click', (e) => {
+  if (e.target.id === 'peek') closePeek();
+});
+
+// Bind all peekable elements
+document.querySelectorAll('[data-peek]').forEach(el => {
+  el.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openPeek(el.dataset.peek);
+  });
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closePeek();
+});
+
+// ============== Playground: 模拟 VisitorInfo ==============
+const slots = ['plate', 'reason', 'phone', 'company', 'contact_name', 'duration'];
+const required = ['plate', 'reason', 'phone'];
+
+function updatePlayground() {
+  const vals = {};
+  slots.forEach(s => {
+    const el = document.getElementById(s);
+    vals[s] = el ? el.value.trim() : '';
+  });
+  vals.is_returning = document.getElementById('is_returning').checked;
+
+  // 槽位 chips
+  const slotEl = document.getElementById('slots-display');
+  slotEl.innerHTML = slots.map(s => {
+    const filled = !!vals[s];
+    const req = required.includes(s);
+    return `<span class="slot ${filled ? 'filled' : ''} ${req ? 'required' : ''}">
+      ${s} ${filled ? '✓ ' + (vals[s].length > 12 ? vals[s].slice(0,12) + '…' : vals[s]) : (req ? '*' : '?')}
+    </span>`;
+  }).join('');
+
+  // 判定
+  const missing = required.filter(s => !vals[s]);
+  const isComplete = vals.is_returning
+    ? !!vals.plate
+    : missing.length === 0;
+
+  const v = document.getElementById('verdict');
+  const card = document.getElementById('wechat-card');
+  if (isComplete) {
+    v.className = 'verdict complete';
+    v.innerHTML = `
+      <div class="verdict-h">✅ <code>is_complete()</code> → True</div>
+      <p>LLM 应该调 <code>send_to_guard_and_end_call</code> 结束通话。</p>
+      <p>门卫群会收到这张卡片 ↓</p>
+    `;
+    // 渲染微信卡片
+    const returning = vals.is_returning;
+    card.className = 'wechat-card show';
+    card.innerHTML =
+      `<span class="card-tag">群机器人</span>## 🚗 新访客登记 ${returning ? '♻️ 回访' : '🆕 新访'}\n\n` +
+      `**车牌号**：${vals.plate || '未提供'}\n` +
+      `**受访公司**：${vals.company || '未提供'}\n` +
+      `**来访事由**：${vals.reason || '未提供'}\n` +
+      `**访客姓名**：${vals.contact_name || '-'}\n` +
+      `**联系电话**：${vals.phone || '-'}\n` +
+      `**预计停留**：${vals.duration || '-'}`;
+  } else {
+    v.className = 'verdict incomplete';
+    v.innerHTML = `
+      <div class="verdict-h">⏳ <code>is_complete()</code> → False</div>
+      <p>缺槽位：<strong>${missing.map(m => '<code>'+m+'</code>').join('、') || '(none)'}</strong></p>
+      <p>LLM 应该继续问：<em>"${missing.length ? '请告诉我您的' + missing.map(m=>{
+        return m==='plate' ? '车牌号' : m==='reason' ? '来访事由' : '联系电话';
+      }).join('、') + '？' : ''}"</em></p>
+    `;
+    card.className = 'wechat-card';
+  }
+}
+
+slots.forEach(s => {
+  const el = document.getElementById(s);
+  if (el) el.addEventListener('input', updatePlayground);
+});
+document.getElementById('is_returning').addEventListener('change', updatePlayground);
+updatePlayground();
+</script>
+</body>
+</html>

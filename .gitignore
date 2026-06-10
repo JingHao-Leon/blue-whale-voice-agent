@@ -37,3 +37,4 @@ logs/
 *.mp3
 recordings/
 .codegraph/
+server.pid

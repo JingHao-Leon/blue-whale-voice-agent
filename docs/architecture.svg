@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 820" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#e0f2fe"/>
+      <stop offset="100%" stop-color="#bfdbfe"/>
+    </linearGradient>
+    <linearGradient id="g2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ede9fe"/>
+      <stop offset="100%" stop-color="#c4b5fd"/>
+    </linearGradient>
+    <linearGradient id="g3" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#dcfce7"/>
+      <stop offset="100%" stop-color="#86efac"/>
+    </linearGradient>
+    <linearGradient id="g4" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffedd5"/>
+      <stop offset="100%" stop-color="#fdba74"/>
+    </linearGradient>
+    <linearGradient id="g5" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fce7f3"/>
+      <stop offset="100%" stop-color="#f9a8d4"/>
+    </linearGradient>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+    <marker id="arrBlue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1400" height="820" fill="#f8fafc"/>
+
+  <!-- Title -->
+  <text x="700" y="36" font-size="24" font-weight="700" text-anchor="middle" fill="#0f172a">📞 Voice Agent · 蓝色鲸鱼科技园访客登记系统 — 端到端架构图</text>
+  <text x="700" y="60" font-size="13" text-anchor="middle" fill="#475569">电话接听 → 流式 ASR/TTS → LLM Agent → 企业微信推送 · 25 秒 SLA</text>
+
+  <!-- ============ Driver ============ -->
+  <g transform="translate(40, 120)">
+    <rect width="180" height="100" rx="14" fill="url(#g1)" stroke="#60a5fa" stroke-width="2"/>
+    <text x="90" y="38" text-anchor="middle" font-size="14" font-weight="600" fill="#1e3a8a">🚗 访客车主</text>
+    <text x="90" y="62" text-anchor="middle" font-size="12" fill="#1e40af">手机拨号</text>
+    <text x="90" y="82" text-anchor="middle" font-size="11" fill="#475569">园区热线电话</text>
+  </g>
+
+  <!-- ============ Twilio ============ -->
+  <g transform="translate(280, 100)">
+    <rect width="200" height="140" rx="14" fill="url(#g4)" stroke="#fb923c" stroke-width="2"/>
+    <text x="100" y="34" text-anchor="middle" font-size="14" font-weight="600" fill="#9a3412">☁️ Twilio</text>
+    <text x="100" y="56" text-anchor="middle" font-size="12" fill="#c2410c">Media Streams</text>
+    <text x="100" y="80" text-anchor="middle" font-size="11" fill="#7c2d12">公网电话接入</text>
+    <text x="100" y="98" text-anchor="middle" font-size="11" fill="#7c2d12">双向 WebSocket</text>
+    <text x="100" y="120" text-anchor="middle" font-size="10" fill="#9a3412">μ-law 8 kHz</text>
+  </g>
+
+  <!-- ============ Our Server Container ============ -->
+  <g transform="translate(540, 80)">
+    <rect width="600" height="540" rx="18" fill="#ffffff" stroke="#94a3b8" stroke-width="2" stroke-dasharray="6 4"/>
+    <rect width="600" height="40" rx="18" fill="#1e293b"/>
+    <rect y="20" width="600" height="20" fill="#1e293b"/>
+    <text x="300" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#f1f5f9">⚙️ 我们的服务 · FastAPI (云端或本地)</text>
+
+    <!-- FastAPI App -->
+    <g transform="translate(30, 60)">
+      <rect width="240" height="70" rx="10" fill="url(#g2)" stroke="#a78bfa" stroke-width="1.5"/>
+      <text x="120" y="28" text-anchor="middle" font-size="13" font-weight="600" fill="#5b21b6">🚀 FastAPI App</text>
+      <text x="120" y="48" text-anchor="middle" font-size="10" fill="#6d28d9">/twiml · /media-stream</text>
+      <text x="120" y="62" text-anchor="middle" font-size="10" fill="#6d28d9">/api/guard/chat</text>
+    </g>
+
+    <!-- Twilio handler -->
+    <g transform="translate(330, 60)">
+      <rect width="240" height="70" rx="10" fill="url(#g3)" stroke="#4ade80" stroke-width="1.5"/>
+      <text x="120" y="28" text-anchor="middle" font-size="13" font-weight="600" fill="#166534">🎬 Twilio Call</text>
+      <text x="120" y="48" text-anchor="middle" font-size="10" fill="#15803d">WebSocket 调度</text>
+      <text x="120" y="62" text-anchor="middle" font-size="10" fill="#15803d">回访识别 · 静默兜底</text>
+    </g>
+
+    <!-- STT -->
+    <g transform="translate(30, 160)">
+      <rect width="240" height="80" rx="10" fill="url(#g1)" stroke="#60a5fa" stroke-width="1.5"/>
+      <text x="120" y="26" text-anchor="middle" font-size="13" font-weight="600" fill="#1e40af">🎙️ STT</text>
+      <text x="120" y="46" text-anchor="middle" font-size="11" fill="#1e3a8a">Deepgram nova-2</text>
+      <text x="120" y="62" text-anchor="middle" font-size="10" fill="#475569">流式 · 中文 · ~300ms</text>
+      <text x="120" y="76" text-anchor="middle" font-size="10" fill="#475569">备选: Whisper</text>
+    </g>
+
+    <!-- LLM Agent -->
+    <g transform="translate(330, 160)">
+      <rect width="240" height="80" rx="10" fill="url(#g5)" stroke="#f472b6" stroke-width="1.5"/>
+      <text x="120" y="26" text-anchor="middle" font-size="13" font-weight="600" fill="#9f1239">🧠 LLM Agent</text>
+      <text x="120" y="46" text-anchor="middle" font-size="11" fill="#be185d">GPT-4o-mini</text>
+      <text x="120" y="62" text-anchor="middle" font-size="10" fill="#9d174d">+ Function Calling</text>
+      <text x="120" y="76" text-anchor="middle" font-size="10" fill="#9d174d">增量更新 · 单点收口</text>
+    </g>
+
+    <!-- TTS -->
+    <g transform="translate(30, 270)">
+      <rect width="240" height="80" rx="10" fill="url(#g1)" stroke="#60a5fa" stroke-width="1.5"/>
+      <text x="120" y="26" text-anchor="middle" font-size="13" font-weight="600" fill="#1e40af">🔊 TTS</text>
+      <text x="120" y="46" text-anchor="middle" font-size="11" fill="#1e3a8a">Edge TTS</text>
+      <text x="120" y="62" text-anchor="middle" font-size="10" fill="#475569">xiaoxiaoNeural · 免费</text>
+      <text x="120" y="76" text-anchor="middle" font-size="10" fill="#475569">备选: OpenAI TTS</text>
+    </g>
+
+    <!-- Guard Agent -->
+    <g transform="translate(330, 270)">
+      <rect width="240" height="80" rx="10" fill="url(#g5)" stroke="#f472b6" stroke-width="1.5"/>
+      <text x="120" y="26" text-anchor="middle" font-size="13" font-weight="600" fill="#9f1239">📊 门卫查询 Agent</text>
+      <text x="120" y="46" text-anchor="middle" font-size="11" fill="#be185d">自然语言 → SQL</text>
+      <text x="120" y="62" text-anchor="middle" font-size="10" fill="#9d174d">"本周多少车辆?"</text>
+      <text x="120" y="76" text-anchor="middle" font-size="10" fill="#9d174d">"张师傅来了几次?"</text>
+    </g>
+
+    <!-- Database -->
+    <g transform="translate(30, 380)">
+      <rect width="240" height="80" rx="10" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+      <ellipse cx="120" cy="22" rx="50" ry="8" fill="#cbd5e1"/>
+      <path d="M 70 22 L 70 60 Q 70 68 120 68 Q 170 68 170 60 L 170 22" fill="#cbd5e1"/>
+      <ellipse cx="120" cy="22" rx="50" ry="8" fill="#94a3b8"/>
+      <text x="120" y="50" text-anchor="middle" font-size="13" font-weight="600" fill="#0f172a">🗄️ SQLite</text>
+      <text x="120" y="66" text-anchor="middle" font-size="10" fill="#475569">visitors · conversations</text>
+    </g>
+
+    <!-- WeChat client -->
+    <g transform="translate(330, 380)">
+      <rect width="240" height="80" rx="10" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+      <text x="120" y="26" text-anchor="middle" font-size="13" font-weight="600" fill="#14532d">💬 企微 Webhook 客户端</text>
+      <text x="120" y="46" text-anchor="middle" font-size="11" fill="#166534">Markdown 卡片推送</text>
+      <text x="120" y="62" text-anchor="middle" font-size="10" fill="#15803d">重试 · 错误码处理</text>
+      <text x="120" y="76" text-anchor="middle" font-size="10" fill="#15803d">零审批 · 零费用</text>
+    </g>
+
+    <!-- SLA bar -->
+    <g transform="translate(30, 480)">
+      <rect width="540" height="46" rx="8" fill="#fef3c7" stroke="#f59e0b" stroke-width="1"/>
+      <text x="14" y="20" font-size="11" font-weight="600" fill="#92400e">⏱️ 端到端 SLA：</text>
+      <text x="100" y="20" font-size="11" fill="#78350f">电话接通 → WeChat 推送 ≤ 25 s</text>
+      <text x="14" y="38" font-size="10" fill="#92400e">实测 3-6 s（Edge TTS 0.5s · Deepgram 0.3s · GPT-4o-mini 0.7s · 微信 0.2s）</text>
+    </g>
+  </g>
+
+  <!-- ============ WeChat ============ -->
+  <g transform="translate(1190, 100)">
+    <rect width="180" height="140" rx="14" fill="url(#g3)" stroke="#4ade80" stroke-width="2"/>
+    <text x="90" y="34" text-anchor="middle" font-size="14" font-weight="600" fill="#166534">💬 企业微信群</text>
+    <text x="90" y="56" text-anchor="middle" font-size="12" fill="#15803d">门卫通知群</text>
+    <text x="90" y="80" text-anchor="middle" font-size="11" fill="#166534">机器人 Webhook</text>
+    <text x="90" y="98" text-anchor="middle" font-size="11" fill="#166534">Markdown 卡片</text>
+    <text x="90" y="120" text-anchor="middle" font-size="10" fill="#15803d">@门卫 · 立即放行</text>
+  </g>
+
+  <!-- ============ Guard ============ -->
+  <g transform="translate(1190, 290)">
+    <rect width="180" height="100" rx="14" fill="url(#g5)" stroke="#f472b6" stroke-width="2"/>
+    <text x="90" y="38" text-anchor="middle" font-size="14" font-weight="600" fill="#9f1239">👮 门卫</text>
+    <text x="90" y="62" text-anchor="middle" font-size="12" fill="#be185d">手机 · 看消息</text>
+    <text x="90" y="82" text-anchor="middle" font-size="11" fill="#9d174d">自然语言查数据</text>
+  </g>
+
+  <!-- ============ External LLM ============ -->
+  <g transform="translate(1190, 430)">
+    <rect width="180" height="100" rx="14" fill="url(#g2)" stroke="#a78bfa" stroke-width="2"/>
+    <text x="90" y="38" text-anchor="middle" font-size="14" font-weight="600" fill="#5b21b6">☁️ OpenAI</text>
+    <text x="90" y="62" text-anchor="middle" font-size="12" fill="#6d28d9">GPT-4o-mini</text>
+    <text x="90" y="82" text-anchor="middle" font-size="11" fill="#7c3aed">兼容 OpenRouter / vLLM</text>
+  </g>
+
+  <!-- ============ External STT/TTS ============ -->
+  <g transform="translate(1190, 560)">
+    <rect width="180" height="100" rx="14" fill="url(#g1)" stroke="#60a5fa" stroke-width="2"/>
+    <text x="90" y="34" text-anchor="middle" font-size="14" font-weight="600" fill="#1e3a8a">☁️ 外部 AI</text>
+    <text x="90" y="56" text-anchor="middle" font-size="11" fill="#1e40af">Deepgram · Edge TTS</text>
+    <text x="90" y="78" text-anchor="middle" font-size="10" fill="#475569">可替换 · 100% 国产化</text>
+    <text x="90" y="92" text-anchor="middle" font-size="10" fill="#475569">讯飞 / 阿里通义 / 豆包</text>
+  </g>
+
+  <!-- ============ Arrows ============ -->
+  <!-- Driver -> Twilio -->
+  <line x1="220" y1="170" x2="280" y2="170" stroke="#475569" stroke-width="2" marker-end="url(#arr)"/>
+  <text x="250" y="160" text-anchor="middle" font-size="10" fill="#475569">PSTN</text>
+
+  <!-- Twilio <-> FastAPI (WebSocket) -->
+  <path d="M 480 170 Q 510 170 540 140" stroke="#2563eb" stroke-width="2.5" marker-end="url(#arrBlue)" marker-start="url(#arrBlue)" fill="none"/>
+  <text x="510" y="135" font-size="10" fill="#1d4ed8">WebSocket</text>
+
+  <!-- App -> Twilio handler (inside server) -->
+  <line x1="270" y1="170" x2="330" y2="170" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2 2"/>
+
+  <!-- Twilio handler -> STT -->
+  <line x1="450" y1="130" x2="450" y2="160" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2 2"/>
+  <line x1="450" y1="130" x2="150" y2="200" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2 2" marker-end="url(#arr)"/>
+  <text x="240" y="190" font-size="9" fill="#64748b">μ-law</text>
+
+  <!-- STT -> LLM -->
+  <line x1="270" y1="200" x2="330" y2="200" stroke="#475569" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="300" y="195" text-anchor="middle" font-size="9" fill="#475569">text</text>
+
+  <!-- LLM -> TTS -->
+  <line x1="450" y1="240" x2="450" y2="270" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2 2"/>
+  <line x1="330" y1="240" x2="270" y2="310" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2 2" marker-end="url(#arr)"/>
+  <text x="240" y="305" font-size="9" fill="#64748b">text</text>
+
+  <!-- LLM -> DB (function call) -->
+  <path d="M 450 240 Q 450 360 270 380" stroke="#a78bfa" stroke-width="1.5" stroke-dasharray="4 2" fill="none" marker-end="url(#arr)"/>
+  <text x="355" y="350" font-size="9" fill="#7c3aed">find/plate (回访)</text>
+
+  <!-- LLM -> WeChat (send_to_guard_and_end_call) -->
+  <path d="M 570 200 Q 1000 200 1090 110 Q 1140 100 1190 130" stroke="#16a34a" stroke-width="2.5" fill="none" marker-end="url(#arr)"/>
+  <text x="900" y="100" font-size="11" font-weight="600" fill="#15803d">📤 send_to_guard_and_end_call (function call)</text>
+
+  <!-- TTS -> Twilio (round trip back) -->
+  <path d="M 150 310 Q 100 310 100 250 Q 100 200 280 200" stroke="#94a3b8" stroke-width="1" fill="none" marker-end="url(#arr)" stroke-dasharray="2 2"/>
+  <text x="60" y="245" font-size="9" fill="#64748b">μ-law</text>
+
+  <!-- Guard chat in/out -->
+  <line x1="1190" y1="340" x2="1140" y2="340" stroke="#94a3b8" stroke-width="1" marker-end="url(#arr)" stroke-dasharray="4 2"/>
+  <line x1="1140" y1="350" x2="1190" y2="350" stroke="#94a3b8" stroke-width="1" marker-end="url(#arr)" stroke-dasharray="4 2"/>
+  <text x="1100" y="335" font-size="9" fill="#64748b">/api/guard/chat</text>
+
+  <!-- LLM -> OpenAI -->
+  <line x1="870" y1="240" x2="1190" y2="480" stroke="#a78bfa" stroke-width="1" stroke-dasharray="2 2" marker-end="url(#arr)"/>
+  <text x="1060" y="380" font-size="9" fill="#7c3aed">HTTPS</text>
+
+  <!-- STT/TTS -> External AI -->
+  <line x1="270" y1="200" x2="600" y2="610" stroke="#60a5fa" stroke-width="1" stroke-dasharray="2 2" marker-end="url(#arr)"/>
+  <line x1="270" y1="310" x2="600" y2="610" stroke="#60a5fa" stroke-width="1" stroke-dasharray="2 2" marker-end="url(#arr)"/>
+
+  <!-- WeChat -> Guard -->
+  <line x1="1280" y1="240" x2="1280" y2="290" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Legend -->
+  <g transform="translate(40, 700)">
+    <text x="0" y="0" font-size="12" font-weight="600" fill="#0f172a">图例 / 说明：</text>
+    <rect x="0" y="14" width="14" height="14" fill="url(#g1)" stroke="#60a5fa"/>
+    <text x="22" y="25" font-size="11" fill="#475569">音频 / 电话层</text>
+
+    <rect x="140" y="14" width="14" height="14" fill="url(#g2)" stroke="#a78bfa"/>
+    <text x="162" y="25" font-size="11" fill="#475569">Web / API 层</text>
+
+    <rect x="280" y="14" width="14" height="14" fill="url(#g3)" stroke="#4ade80"/>
+    <text x="302" y="25" font-size="11" fill="#475569">AI / 决策</text>
+
+    <rect x="420" y="14" width="14" height="14" fill="url(#g4)" stroke="#fb923c"/>
+    <text x="442" y="25" font-size="11" fill="#475569">外部服务</text>
+
+    <rect x="560" y="14" width="14" height="14" fill="url(#g5)" stroke="#f472b6"/>
+    <text x="582" y="25" font-size="11" fill="#475569">对话 / 智能体</text>
+
+    <line x1="740" y1="20" x2="780" y2="20" stroke="#475569" stroke-width="2" marker-end="url(#arr)"/>
+    <text x="790" y="25" font-size="11" fill="#475569">同步数据流</text>
+
+    <line x1="900" y1="20" x2="940" y2="20" stroke="#16a34a" stroke-width="2" marker-end="url(#arr)"/>
+    <text x="950" y="25" font-size="11" fill="#15803d">关键控制流</text>
+  </g>
+
+  <!-- Footer note -->
+  <text x="40" y="780" font-size="11" fill="#64748b">💡 关键设计：1) 单点收口 (send_to_guard_and_end_call) 保证必推微信才能挂断；2) 流式 STT/TTS + 增量 LLM 把首 token 时延压到 &lt; 1.5s</text>
+  <text x="40" y="800" font-size="11" fill="#64748b">3) Edge TTS 免费、Deepgram 中文原生；4) SQLite 起步，Postgres 一行 URL 切换；5) 所有外部服务可替换为国产：讯飞 ASR、阿里通义、豆包 TTS…</text>
+</svg>
